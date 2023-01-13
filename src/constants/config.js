@@ -1,0 +1,20 @@
+module.exports = constant = {
+  STATUS_SUCCESS: "success",
+  STATUS_FAILURE: "failure",
+
+  //HTTP Status codes
+  HTTP_200_CODE: 200,
+  HTTP_201_CODE: 201,
+  HTTP_204_CODE: 204,
+  HTTP_401_CODE: 401,
+  HTTP_404_CODE: 404,
+  HTTP_422_CODE: 422,
+  HTTP_400_CODE: 400,
+  HTTP_206_CODE: 206,
+  HTTP_500_CODE: 500,
+  HTTP_503_CODE: 503,
+
+  MYSQL_DB: 1,
+  POSTGRES_DB: 2,
+
+};
