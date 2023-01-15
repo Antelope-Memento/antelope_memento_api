@@ -1,13 +1,11 @@
 const constant = require("../../constants/config");
 const db       = require("../../utilities/db");
 
-const healthy_sync_diff = 20000; // milli sec
-
 var controller = function(){
 };
 
 controller.health = async (req, res)=>{
-  let query = "select last_updated from SYNC";
+  let query = "select block_time from SYNC";
   db.ExecuteQuery(query, (data)=>{
     if(data.status == 'error')
     {
@@ -19,13 +17,17 @@ controller.health = async (req, res)=>{
       if(data.data.length > 0)
       {
         let rec = data.data[0];
-        console.log(rec.last_updated);
-        let dt = new Date(rec.last_updated);
-        let dt1 = new Date();
-        let timeDiff = dt1.getTime() - dt.getTime();
-        console.log('time diff ' + timeDiff);
+        let block_time = new Date(rec.block_time);
 
-        if(timeDiff <= healthy_sync_diff)
+        var now = new Date();
+        var now_utc = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+        let timeDiff = now_utc.getTime() - block_time.getTime();
+
+      //  console.log(now_utc.toISOString());
+    //    console.log(dt.toISOString());
+      //  console.log('time diff ' + timeDiff);
+
+        if(timeDiff <= process.env.HEALTHY_SYNC_TIME_DIFF)
         {
           res.status(constant.HTTP_200_CODE).send({"msg":'Healthy'});
         }
@@ -43,7 +45,7 @@ controller.health = async (req, res)=>{
 }
 
 controller.is_healthy = async (req, res)=>{
-  let query = "select last_updated from SYNC";
+  let query = "select block_time from SYNC";
   db.ExecuteQuery(query, (data)=>{
     if(data.status == 'error')
     {
@@ -55,13 +57,15 @@ controller.is_healthy = async (req, res)=>{
       if(data.data.length > 0)
       {
         let rec = data.data[0];
-        console.log(rec.last_updated);
-        let dt = new Date(rec.last_updated);
-        let dt1 = new Date();
-        let timeDiff = dt1.getTime() - dt.getTime();
-        console.log('time diff ' + timeDiff);
+      //  console.log(rec);
+      //  console.log(rec.block_time);
+        let block_time = new Date(rec.block_time);
+        var now = new Date();
+        var now_utc = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+        let timeDiff = now_utc.getTime() - block_time.getTime();
+    //    console.log('time diff ' + timeDiff);
 
-        if(timeDiff <= healthy_sync_diff)
+        if(timeDiff <= process.env.HEALTHY_SYNC_TIME_DIFF)
         {
           res.status(constant.HTTP_200_CODE).send({status:true, "errormsg":'Healthy'});
         }

@@ -78,14 +78,14 @@ dbUtility.ExecuteQuery = (query, result)=>{
     else {
       if(process.env.DATABASE_SELECT == constant.MYSQL_DB)
       {
-        console.log('Mysql db');
-        console.log(results);
+      //  console.log('Mysql db');
+      //  console.log(results);
         result({status:'success', data:results});
       }
       else
       {
-        console.log('Postgress db');
-        console.log(results.rows);
+      //  console.log('Postgress db');
+      //  console.log(results.rows);
         result({status:'success', data:results.rows});
       }
     }

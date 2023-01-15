@@ -14,7 +14,7 @@ module.exports = constant = {
   HTTP_500_CODE: 500,
   HTTP_503_CODE: 503,
 
-  MYSQL_DB: 1,
-  POSTGRES_DB: 2,
+  MYSQL_DB: "MYSQL",
+  POSTGRES_DB: "POSTGRES",
 
 };

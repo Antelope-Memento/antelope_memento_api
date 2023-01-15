@@ -43,9 +43,8 @@ npm start
 
 Server start listening on the specified port number
 
-Presently there is two APIs
 ## API 1
-url: http://localhost:54321/api/is_healthy
+url: http://localhost:54321/wax/is_healthy
 Method: /is_healthy ( GET )
 
 Response JSON: returns the execution result as below
@@ -58,7 +57,7 @@ Response JSON: returns the execution result as below
 ```
 
 ## API 2
-url: http://localhost:54321/api/health
+url: http://localhost:54321/wax/health
 Method: /health ( GET )
 
 Response JSON: returns the execution result with status code 200 & 503 as below
@@ -79,6 +78,41 @@ status code: 503
 }
 ```
 
+## API 3
+url: http://localhost:12345/wax/transaction?trx_id=transaction_id
+Method: /transaction ( GET )
+Query parameter: trx_id ( transaction id )
+Response JSON: returns the execution result with status code 200
+
+status code: 200
+
+```
+{
+"status": "executed",
+"block_num": 224308181,
+"block_time": "2023-01-13T09:19:50.000Z",
+"trace": {
+  "type": "Buffer",
+  "data": []
+  }
+}
+```
+
+## API 4
+url: http://localhost:12345/wax/transaction_status?trx_id=transaction_id
+Method: /transaction_status ( GET )
+Query parameter: trx_id ( transaction id )
+Response JSON: returns the execution result with status code 200
+
+status code: 200
+
+```
+{
+  "status": "executed",
+  "block_num": 224308181,
+  "block_time": "2023-01-13T09:19:50.000Z"
+}
+```
 
 # Acknowledgments
 This work was sponsored by EOS Amsterdam block producer.
