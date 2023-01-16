@@ -69,19 +69,10 @@ dbUtility.CreateConnectionPool = ()=>{
 };
 
 dbUtility.CloseConnection = ()=>{
-  if(process.env.DATABASE_SELECT == constant.MYSQL_DB)
-  {
-    dbUtility["connection"].end();
-  }
-  else
-  {
-    dbUtility["connection"].release();
-    dbUtility["connection"].end();
-  }
+  dbUtility.connection?.end();
 };
 
 dbUtility.ExecuteQuery = (query, result)=>{
-
     dbUtility.connection.query(query, (error, results) => {
     if (error) {
       console.log(error);

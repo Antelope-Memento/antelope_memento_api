@@ -18,25 +18,55 @@ controller.get_transaction = async (req, res)=>{
     {
       if(data.data.length > 0)
       {
-        try {
-          let rec = data.data[0];
-
-          let str = Buffer.from(rec.trace, 'utf');
-        //  console.log(str.toString());
-          let trace_obj = JSON.parse(str.toString());
-          let status = trace_obj.trace.status;
-          res.status(constant.HTTP_200_CODE).send({status:status, block_num:rec.block_num, block_time:rec.block_time, trace: rec.trace});
-        }
-        catch(e)
-        {
-          res.status(constant.HTTP_500_CODE).send({"errormsg":'Trace parsing error'});
-        }
+        let rec = data.data[0];
+        controller.getIrreversibleBlockNumber().then( data=>{
+          if(data.status == 'success')
+          {
+            let status = 'irreversible';
+            if(rec.block_num > data.irreversible)
+            {
+              status = 'reversible';
+            }
+            res.status(constant.HTTP_200_CODE).send({status:status, block_num:rec.block_num, block_time:rec.block_time, trace: rec.trace});
+          }
+          else
+          {
+            res.status(constant.HTTP_500_CODE).send({"errormsg":'Unable to read db'});
+          }
+        });
       }
       else
       {
-        res.status(constant.HTTP_500_CODE).send({"errormsg":'Record not found'});
+        res.status(constant.HTTP_200_CODE).send({status:'unknown', "errormsg":'Record not found'});
       }
     }
+  });
+}
+
+controller.getIrreversibleBlockNumber = ()=>{
+
+  return new Promise((resolve) => {
+
+    let query = "select irreversible from SYNC";
+    db.ExecuteQuery(query, (data)=>{
+      if(data.status == 'error')
+      {
+        console.log(data.msg);
+        resolve({status:'error'});
+      }
+      else
+      {
+        if(data.data.length > 0)
+        {
+          let rec = data.data[0];
+          resolve({status:'success', irreversible: parseInt(rec.irreversible)});
+        }
+        else
+        {
+          resolve({status:'error'});
+        }
+      }
+    });
   });
 }
 
@@ -55,23 +85,26 @@ controller.get_transaction_status = async (req, res)=>{
     {
       if(data.data.length > 0)
       {
-        try {
-          let rec = data.data[0];
-          let str = Buffer.from(rec.trace, 'utf');
-        //  console.log(str.toString());
-          let trace_obj = JSON.parse(str.toString());
-          let status = trace_obj.trace.status;
-
-          res.status(constant.HTTP_200_CODE).send({status:status, block_num:rec.block_num, block_time:rec.block_time});
-        }
-        catch(e)
-        {
-          res.status(constant.HTTP_500_CODE).send({"errormsg":'Trace parsing error'});
-        }
+        let rec = data.data[0];
+        controller.getIrreversibleBlockNumber().then(data=>{
+          if(data.status == 'success')
+          {
+            let status = 'irreversible';
+            if(rec.block_num > data.irreversible)
+            {
+              status = 'reversible';
+            }
+            res.status(constant.HTTP_200_CODE).send({status:status, block_num:rec.block_num, block_time:rec.block_time});
+          }
+          else
+          {
+            res.status(constant.HTTP_500_CODE).send({"errormsg":'Unable to read db'});
+          }
+        });
       }
       else
       {
-        res.status(constant.HTTP_500_CODE).send({"errormsg":'Record not found'});
+        res.status(constant.HTTP_200_CODE).send({status:'unknown', "errormsg":'Record not found'});
       }
     }
   });
