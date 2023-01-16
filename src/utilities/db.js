@@ -68,6 +68,18 @@ dbUtility.CreateConnectionPool = ()=>{
   }
 };
 
+dbUtility.CloseConnection = ()=>{
+  if(process.env.DATABASE_SELECT == constant.MYSQL_DB)
+  {
+    dbUtility["connection"].end();
+  }
+  else
+  {
+    dbUtility["connection"].release();
+    dbUtility["connection"].end();
+  }
+};
+
 dbUtility.ExecuteQuery = (query, result)=>{
 
     dbUtility.connection.query(query, (error, results) => {
@@ -79,13 +91,11 @@ dbUtility.ExecuteQuery = (query, result)=>{
       if(process.env.DATABASE_SELECT == constant.MYSQL_DB)
       {
       //  console.log('Mysql db');
-      //  console.log(results);
         result({status:'success', data:results});
       }
       else
       {
       //  console.log('Postgress db');
-      //  console.log(results.rows);
         result({status:'success', data:results.rows});
       }
     }

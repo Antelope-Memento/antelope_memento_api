@@ -31,4 +31,21 @@ app.listen(port, bind_ip, () => {
   console.log(`listening on port no ${port}`);
 });
 
+var gracefulExit = function() {
+  console.log('Close DB connection');
+  dbUtility.CloseConnection();
+  process.exit(0);
+}
+
+// If the Node process ends, close the DB connection
+process.on('SIGINT', gracefulExit).on('SIGTERM', gracefulExit);
+
+process.on('uncaughtException', function(error) {
+  console.log('uncaughtException ' + error);
+});
+
+process.on('unhandledRejection', function(reason, p){
+    console.log('unhandledRejection ' + reason);
+});
+
 module.exports = app;
