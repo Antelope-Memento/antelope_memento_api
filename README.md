@@ -128,6 +128,8 @@ Path: /get_account_history ( GET )
 
 Query parameters: contract (string type), irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min ( datetime ), block_time_max ( datetime )
 
+Optional parameters: block_num_min, block_num_max, block_time_min, block_time_max
+
 Response JSON: returns the execution result (list of trace objects) with status code 200
 
 status code: 200
@@ -148,6 +150,8 @@ url: http://localhost:12345/wax/get_contract_history?contract=contract_name&irre
 Path: /get_contract_history ( GET )
 
 Query parameters: contract (string type), irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min ( datetime ), block_time_max ( datetime ), actions ( list of action: string type )
+
+Optional parameters: block_num_min, block_num_max, block_time_min, block_time_max, actions
 
 Response JSON: returns the execution result (list of trace objects) with status code 200
 
