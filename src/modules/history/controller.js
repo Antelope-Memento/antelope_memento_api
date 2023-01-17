@@ -25,7 +25,7 @@ const sendTraces = async (res, traces, irreversibleBlock) =>
   }
   else
   {
-    res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
+    res.status(constant.HTTP_200_CODE).send({data:[], last_irreversible_block: irreversibleBlock});
   }
 }
 
