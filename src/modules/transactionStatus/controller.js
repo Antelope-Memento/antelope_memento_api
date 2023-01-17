@@ -49,14 +49,9 @@ controller.get_transaction = async (req, res)=>{
         controller.getIrreversibleBlockNumber().then( data=>{
           if(data.status == 'success')
           {
-            let status = true;
-            if(rec.block_num > data.irreversible)
-            {
-              status = false;
-            }
-
             res.status(constant.HTTP_200_CODE);
-            res.write('{\"irreversible\":' + status + ',\"data\":');
+            res.write('{\"known\":true, \"irreversible\":' + (rec.block_num > data.irreversible ? 'false':'true') +
+                      ',\"data\":');
             res.write(rec.trace);
             res.write('}');
             res.end();
@@ -69,7 +64,7 @@ controller.get_transaction = async (req, res)=>{
       }
       else
       {
-        res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
+        res.status(constant.HTTP_200_CODE).send({"known": false});
       }
     }
   });
