@@ -46,7 +46,7 @@ Server start listening on the specified port number
 ## API 1
 url: http://localhost:54321/wax/is_healthy
 
-Method: /is_healthy ( GET )
+Path: /is_healthy ( GET )
 
 Response JSON: returns the execution result as below
 
@@ -60,7 +60,7 @@ Response JSON: returns the execution result as below
 ## API 2
 url: http://localhost:54321/wax/health
 
-Method: /health ( GET )
+Path: /health ( GET )
 
 Response JSON: returns the execution result with status code 200 & 503 as below
 
@@ -81,9 +81,9 @@ status code: 503
 ```
 
 ## API 3
-url: http://localhost:12345/wax/transaction?trx_id=transaction_id
+url: http://localhost:12345/wax/get_transaction?trx_id=transaction_id
 
-Method: /transaction ( GET )
+Path: /get_transaction ( GET )
 
 Query parameter: trx_id ( transaction id string type )
 
@@ -93,20 +93,19 @@ status code: 200
 
 ```
 {
-"status": "executed",
+"irreversible": true,
 "block_num": 224308181,
 "block_time": "2023-01-13T09:19:50.000Z",
 "trace": {
-  "type": "Buffer",
-  "data": []
+  ...
   }
 }
 ```
 
 ## API 4
-url: http://localhost:12345/wax/transaction_status?trx_id=transaction_id
+url: http://localhost:12345/wax/get_transaction_status?trx_id=transaction_id
 
-Method: /transaction_status ( GET )
+Path: /get_transaction_status ( GET )
 
 Query parameter: trx_id ( transaction id string type )
 
@@ -116,20 +115,20 @@ status code: 200
 
 ```
 {
-  "status": "executed",
+  "irreversible": true,
   "block_num": 224308181,
   "block_time": "2023-01-13T09:19:50.000Z"
 }
 ```
 
 ## API 5
-url: http://localhost:12345/wax/account_history?account=account_name&irreversible=false&block_num_min=224763920&block_num_max=224763922&block_time_min=2023/01/16 06:09:04&block_time_max=2023/01/16 06:09:05
+url: http://localhost:12345/wax/get_account_history?account=account_name&irreversible=false&block_num_min=224763920&block_num_max=224763922&block_time_min=2023-01-17T06:40:04&block_time_max=2023-01-17T06:47:05
 
-Method: /account_history ( GET )
+Path: /get_account_history ( GET )
 
 Query parameters: contract (string type), irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min ( datetime ), block_time_max ( datetime )
 
-Response JSON: returns the execution result with status code 200
+Response JSON: returns the execution result (list of trace objects) with status code 200
 
 status code: 200
 
@@ -137,23 +136,20 @@ status code: 200
 {
   "data": [
     {
-      "trace": {
-        "type": "Buffer",
-        "data": [...]
-      }
+      ...
     }
   ]
 }
 ```
 
 ## API 6
-url: http://localhost:12345/wax/contract_history?contract=contract_name&irreversible=true&block_num_min=224763920&block_num_max=224763922&block_time_min=2023/01/16 06:09:04&block_time_max=2023/01/16 06:09:05&actions=repair,recover,claim
+url: http://localhost:12345/wax/get_contract_history?contract=contract_name&irreversible=true&block_num_min=224763920&block_num_max=224763922&block_time_min=2023-01-17T06:40:04&block_time_max=2023-01-17T06:47:05&actions=repair,recover,claim
 
-Method: /contract_history ( GET )
+Path: /get_contract_history ( GET )
 
 Query parameters: contract (string type), irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min ( datetime ), block_time_max ( datetime ), actions ( list of action: string type )
 
-Response JSON: returns the execution result with status code 200
+Response JSON: returns the execution result (list of trace objects) with status code 200
 
 status code: 200
 
@@ -161,10 +157,7 @@ status code: 200
 {
   "data": [
     {
-      "trace": {
-        "type": "Buffer",
-        "data": [...]
-      }
+      ...
     }
   ]
 }

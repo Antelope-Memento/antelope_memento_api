@@ -49,12 +49,18 @@ controller.get_transaction = async (req, res)=>{
         controller.getIrreversibleBlockNumber().then( data=>{
           if(data.status == 'success')
           {
-            let status = constant.STATUS_IRREVERSIBLE;
+            let status = true;
             if(rec.block_num > data.irreversible)
             {
-              status = constant.STATUS_REVERSIBLE;
+              status = false;
             }
-            res.status(constant.HTTP_200_CODE).send({status:status, block_num:rec.block_num, block_time:rec.block_time, trace: rec.trace});
+
+            res.status(constant.HTTP_200_CODE);
+            res.write('{irreversible:' + status + ',trace:');
+            let strTrace = rec.trace.toString('utf8');
+            res.write(strTrace);
+            res.write('}');
+            res.end();
           }
           else
           {
@@ -64,7 +70,7 @@ controller.get_transaction = async (req, res)=>{
       }
       else
       {
-        res.status(constant.HTTP_200_CODE).send({status:constant.STATUS_UNKNOWN, "errormsg":constant.RECORD_NOT_FOUND});
+        res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
       }
     }
   });
@@ -89,12 +95,12 @@ controller.get_transaction_status = async (req, res)=>{
         controller.getIrreversibleBlockNumber().then(data=>{
           if(data.status == 'success')
           {
-            let status = constant.STATUS_IRREVERSIBLE;
+            let status = true;
             if(rec.block_num > data.irreversible)
             {
-              status = constant.STATUS_REVERSIBLE;
+              status = false;
             }
-            res.status(constant.HTTP_200_CODE).send({status:status, block_num:rec.block_num, block_time:rec.block_time});
+            res.status(constant.HTTP_200_CODE).send({irreversible:status, block_num:rec.block_num, block_time:rec.block_time});
           }
           else
           {
@@ -104,7 +110,7 @@ controller.get_transaction_status = async (req, res)=>{
       }
       else
       {
-        res.status(constant.HTTP_200_CODE).send({status:constant.STATUS_UNKNOWN, "errormsg":constant.RECORD_NOT_FOUND});
+        res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
       }
     }
   });

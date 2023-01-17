@@ -5,6 +5,55 @@ const txn      = require("../transactionStatus/controller");
 var controller = function(){
 };
 
+const sendTraces = async (res, traces) =>
+{
+  if(traces.length > 0)
+  {
+    res.status(constant.HTTP_200_CODE);
+    res.write('{ data:[');
+    traces.forEach((item, i) => {
+      res.write('{');
+      let strTrace = item.trace.toString('utf8');
+      res.write(strTrace);
+      if(i < traces.length - 1)
+      {
+        res.write('},');
+      }
+      else
+      {
+        res.write('}');
+      }
+    });
+
+    res.write(']}');
+    res.end();
+  }
+  else
+  {
+    res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
+  }
+}
+
+const executeQuery = async (res, query) =>
+{
+  db.ExecuteQuery(query, async (data)=>{
+    if(data.status == 'error')
+    {
+      console.log(data.msg);
+      res.status(constant.HTTP_500_CODE).send({"errormsg":data.msg});
+    }
+    else
+    {
+      try {
+        await sendTraces(res, data.data);
+      }
+      catch(e){
+        res.status(constant.HTTP_500_CODE).send({"errormsg":constant.DATA_SEND_ERROR});
+      }
+    }
+  });
+}
+
 controller.get_account_history = async (req, res)=>{
   let account = req.query["account"];
   let irreversible = req.query["irreversible"];
@@ -67,26 +116,7 @@ controller.get_account_history = async (req, res)=>{
   query = query + " order by RECEIPTS.seq desc LIMIT " + rec_count;
 
   //console.log(query);
-
-  db.ExecuteQuery(query, (data)=>{
-    if(data.status == 'error')
-    {
-      console.log(data.msg);
-      res.status(constant.HTTP_500_CODE).send({"errormsg":data.msg});
-    }
-    else
-    {
-      //console.log(data.data.length);
-      if(data.data.length > 0)
-      {
-        res.status(constant.HTTP_200_CODE).send({data: data.data});
-      }
-      else
-      {
-        res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
-      }
-    }
-  });
+  executeQuery(res, query);
 }
 
 controller.get_contract_history = async (req, res)=>{
@@ -123,7 +153,6 @@ controller.get_contract_history = async (req, res)=>{
   {
     try {
       let data = await txn.getIrreversibleBlockNumber();
-      //  console.log(data);
       if(data.status == 'success')
       {
         if(block_num_max > data.irreversible)
@@ -172,27 +201,7 @@ controller.get_contract_history = async (req, res)=>{
   query = query + " order by ACTIONS.seq LIMIT " + rec_count;
 
   //console.log(query);
-
-  db.ExecuteQuery(query, (data)=>{
-    if(data.status == 'error')
-    {
-      console.log(data.msg);
-      res.status(constant.HTTP_500_CODE).send({"errormsg":data.msg});
-    }
-    else
-    {
-      //console.log(data.data.length);
-
-      if(data.data.length > 0)
-      {
-        res.status(constant.HTTP_200_CODE).send({data: data.data});
-      }
-      else
-      {
-        res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
-      }
-    }
-  });
+  executeQuery(res, query);
 }
 
 module.exports = controller;
