@@ -56,7 +56,7 @@ controller.get_transaction = async (req, res)=>{
             }
 
             res.status(constant.HTTP_200_CODE);
-            res.write('{\"irreversible\":' + status + ',\"trace\":');
+            res.write('{\"irreversible\":' + status + ',\"data\":');
             res.write(rec.trace);
             res.write('}');
             res.end();
