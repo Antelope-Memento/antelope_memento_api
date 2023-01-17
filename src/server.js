@@ -2,8 +2,6 @@ const express = require("express");
 const cors    = require("cors");
 const morgan  = require("morgan");
 const cluster = require('cluster');
-const os      = require('os');
-const nCPUCores = os.cpus().length; // max cluster size, if node cluster is created using other way set value 1
 
 require("dotenv").config();
 
@@ -30,7 +28,7 @@ dbUtility.CreateConnectionPool();
 var port = process.env.SERVER_BIND_PORT || 12345;
 var bind_ip = process.env.SERVER_BIND_IP || '0.0.0.0';
 
-createClusteredServer(bind_ip, port, nCPUCores);
+createClusteredServer(bind_ip, port, process.env.CPU_CORES);
 
 //create clustered server and bind with specified ip address and port number
 function createClusteredServer(ip, port, clusterSize)
