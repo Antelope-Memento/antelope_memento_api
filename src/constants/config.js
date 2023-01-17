@@ -1,6 +1,14 @@
 module.exports = constant = {
   STATUS_SUCCESS: "success",
   STATUS_FAILURE: "failure",
+  STATUS_IRREVERSIBLE: "irreversible",
+  STATUS_REVERSIBLE: "reversible",
+  STATUS_UNKNOWN: "unknown",
+
+  RECORD_NOT_FOUND: "Record not found",
+  DB_READ_ERROR: "Unable to read db",
+  MSG_HEALTHY: "Healthy",
+
 
   //HTTP Status codes
   HTTP_200_CODE: 200,

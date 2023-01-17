@@ -29,7 +29,7 @@ controller.health = async (req, res)=>{
 
         if(timeDiff <= process.env.HEALTHY_SYNC_TIME_DIFF)
         {
-          res.status(constant.HTTP_200_CODE).send({"msg":'Healthy'});
+          res.status(constant.HTTP_200_CODE).send({"msg": constant.MSG_HEALTHY});
         }
         else
         {
@@ -38,7 +38,7 @@ controller.health = async (req, res)=>{
       }
       else
       {
-        res.status(constant.HTTP_500_CODE).send({"msg":'Record not found'});
+        res.status(constant.HTTP_500_CODE).send({"msg":constant.RECORD_NOT_FOUND});
       }
     }
   });
@@ -67,7 +67,7 @@ controller.is_healthy = async (req, res)=>{
 
         if(timeDiff <= process.env.HEALTHY_SYNC_TIME_DIFF)
         {
-          res.status(constant.HTTP_200_CODE).send({status:true, "errormsg":'Healthy'});
+          res.status(constant.HTTP_200_CODE).send({status:true, "errormsg":constant.MSG_HEALTHY});
         }
         else
         {
@@ -76,7 +76,7 @@ controller.is_healthy = async (req, res)=>{
       }
       else
       {
-        res.status(constant.HTTP_500_CODE).send({status:false, "errormsg":'Record not found'});
+        res.status(constant.HTTP_500_CODE).send({status:false, "errormsg":constant.RECORD_NOT_FOUND});
       }
     }
   });

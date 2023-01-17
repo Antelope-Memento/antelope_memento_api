@@ -28,13 +28,13 @@ controller.get_account_history = async (req, res)=>{
           }
           else
           {
-            res.status(constant.HTTP_500_CODE).send({"errormsg":'Unable to read db'});
+            res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
             return;
           }
         }
         catch(e)
         {
-          res.status(constant.HTTP_500_CODE).send({"errormsg":'Unable to read db'});
+          res.status(constant.HTTP_500_CODE).send({"errormsg":constant.DB_READ_ERROR});
           return;
         }
     }
@@ -47,7 +47,7 @@ controller.get_account_history = async (req, res)=>{
       if(data.status == 'error')
       {
         console.log(data.msg);
-        res.status(constant.HTTP_500_CODE).send({"msg":data.msg});
+        res.status(constant.HTTP_500_CODE).send({"errormsg":data.msg});
       }
       else
       {
@@ -57,7 +57,7 @@ controller.get_account_history = async (req, res)=>{
         }
         else
         {
-          res.status(constant.HTTP_500_CODE).send({"msg":'Record not found'});
+          res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
         }
       }
     });
@@ -86,15 +86,11 @@ controller.get_contract_history = async (req, res)=>{
 
   if(irreversible == 'true')
   {
-    console.log('irreversible true');
     try {
           let data = await txn.getIrreversibleBlockNumber();
         //  console.log(data);
           if(data.status == 'success')
           {
-            console.log('block_num_max ' + block_num_max);
-            console.log('irreversible ' + data.irreversible);
-
             if(block_num_max > data.irreversible)
             {
               block_num_max = data.irreversible;
@@ -102,13 +98,13 @@ controller.get_contract_history = async (req, res)=>{
           }
           else
           {
-            res.status(constant.HTTP_500_CODE).send({"errormsg":'Unable to read db'});
+            res.status(constant.HTTP_500_CODE).send({"errormsg":constant.DB_READ_ERROR});
             return;
           }
         }
         catch(e)
         {
-          res.status(constant.HTTP_500_CODE).send({"errormsg":'Unable to read db'});
+          res.status(constant.HTTP_500_CODE).send({"errormsg":constant.DB_READ_ERROR});
           return;
         }
     }
@@ -133,7 +129,7 @@ controller.get_contract_history = async (req, res)=>{
       }
       else
       {
-        res.status(constant.HTTP_500_CODE).send({"errormsg":'Record not found'});
+        res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
       }
     }
   });
