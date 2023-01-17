@@ -108,7 +108,7 @@ url: http://localhost:12345/wax/transaction_status?trx_id=transaction_id
 
 Method: /transaction_status ( GET )
 
-Query parameter: trx_id ( transaction id string type)
+Query parameter: trx_id ( transaction id string type )
 
 Response JSON: returns the execution result with status code 200
 
@@ -127,7 +127,7 @@ url: http://localhost:12345/wax/account_history?account=account_name&irreversibl
 
 Method: /account_history ( GET )
 
-Query parameters: contract (string type), irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min (datetime), block_time_max(datetime)
+Query parameters: contract (string type), irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min ( datetime ), block_time_max ( datetime )
 
 Response JSON: returns the execution result with status code 200
 
@@ -151,7 +151,7 @@ url: http://localhost:12345/wax/contract_history?contract=contract_name&irrevers
 
 Method: /contract_history ( GET )
 
-Query parameters: contract (string type), irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min (datetime), block_time_max(datetime), actions ( list of action: string type )
+Query parameters: contract (string type), irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min ( datetime ), block_time_max ( datetime ), actions ( list of action: string type )
 
 Response JSON: returns the execution result with status code 200
 
