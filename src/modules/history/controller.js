@@ -157,8 +157,8 @@ controller.get_contract_history = async (req, res)=>{
           }
         }
 
-        let query = "select TRANSACTIONS.trace from ACTIONS LEFT JOIN TRANSACTIONS ON ACTIONS.seq = TRANSACTIONS.seq \
-        where contract='" + contract + "'";
+        let query = "select TRANSACTIONS.trace from (select distinct seq from ACTIONS " +
+            "where contract='" + contract + "'";
 
         if(block_num_min != "")
         {
@@ -182,7 +182,8 @@ controller.get_contract_history = async (req, res)=>{
           query = query + " and ACTIONS.action IN " + strAction;
         }
 
-        query = query + " order by ACTIONS.seq LIMIT " + rec_count;
+        query = query + " order by ACTIONS.seq LIMIT " + rec_count +
+              ") as X INNER JOIN TRANSACTIONS ON X.seq = TRANSACTIONS.seq";
         executeQuery(res, query, data.irreversible);
       }
       else
