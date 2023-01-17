@@ -64,7 +64,7 @@ controller.get_transaction = async (req, res)=>{
       }
       else
       {
-        res.status(constant.HTTP_200_CODE).send({"known": false});
+        res.status(constant.HTTP_200_CODE).send({known: false});
       }
     }
   });
@@ -74,7 +74,7 @@ controller.get_transaction_status = async (req, res)=>{
 
   let trx_id = req.query["trx_id"];
 
-  let query = "select block_num, block_time, trace from TRANSACTIONS where trx_id='" + trx_id + "'";
+  let query = "select block_num, block_time from TRANSACTIONS where trx_id='" + trx_id + "'";
   db.ExecuteQuery(query, (data)=>{
     if(data.status == 'error')
     {
@@ -89,12 +89,11 @@ controller.get_transaction_status = async (req, res)=>{
         controller.getIrreversibleBlockNumber().then(data=>{
           if(data.status == 'success')
           {
-            let status = true;
-            if(rec.block_num > data.irreversible)
-            {
-              status = false;
-            }
-            res.status(constant.HTTP_200_CODE).send({irreversible:status, block_num:rec.block_num, block_time:rec.block_time});
+            res.status(constant.HTTP_200_CODE).send({
+              known: true,
+              irreversible: (rec.block_num > data.irreversible ? false:true),
+              block_num: rec.block_num,
+              block_time: rec.block_time});
           }
           else
           {
@@ -104,7 +103,7 @@ controller.get_transaction_status = async (req, res)=>{
       }
       else
       {
-        res.status(constant.HTTP_500_CODE).send({"errormsg":constant.RECORD_NOT_FOUND});
+        res.status(constant.HTTP_200_CODE).send({known: false});
       }
     }
   });
