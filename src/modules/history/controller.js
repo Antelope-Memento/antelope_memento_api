@@ -18,7 +18,7 @@ controller.get_account_history = async (req, res)=>{
     console.log('irreversible true');
     try {
           let data = await txn.getIrreversibleBlockNumber();
-          console.log(data);
+        //  console.log(data);
           if(data.status == 'success')
           {
             if(block_num_max > data.irreversible)

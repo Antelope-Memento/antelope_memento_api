@@ -1,6 +1,9 @@
 const express = require("express");
 const cors    = require("cors");
 const morgan  = require("morgan");
+const cluster = require('cluster');
+const os      = require('os');
+const nCPUCores = os.cpus().length; // max cluster size, if node cluster is created using other way set value 1
 
 require("dotenv").config();
 
@@ -27,9 +30,39 @@ dbUtility.CreateConnectionPool();
 var port = process.env.SERVER_BIND_PORT || 12345;
 var bind_ip = process.env.SERVER_BIND_IP || '0.0.0.0';
 
-app.listen(port, bind_ip, () => {
-  console.log(`listening on port no ${port}`);
-});
+createClusteredServer(bind_ip, port, nCPUCores);
+
+//create clustered server and bind with specified ip address and port number
+function createClusteredServer(ip, port, clusterSize)
+{
+  if (cluster.isMaster) {
+    console.log(`Master ${process.pid} is running`);
+
+    // Fork workers.
+    for (let i = 0; i < clusterSize; i++) {
+      cluster.fork();
+    }
+
+    cluster.on('exit', (worker, code, signal) => {
+      console.log(`worker ${worker.process.pid} died`);
+      if(signal == 'SIGKILL')
+      {
+        gracefulExit();
+        process.exit(0);
+      }
+      else
+      {
+          cluster.fork();
+      }
+      console.log('Starting a new worker ');
+    });
+  } else {
+    app.listen(port, ip, () => {
+      console.log(`listening on port no ${port}`);
+    });
+    console.log(`Worker ${process.pid} started`);
+  }
+}
 
 var gracefulExit = function() {
   console.log('Close DB connection');
