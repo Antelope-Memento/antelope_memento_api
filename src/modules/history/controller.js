@@ -14,7 +14,10 @@ controller.get_account_history = async (req, res)=>{
   let block_time_max = req.query["block_time_max"] || "";
 
   let rec_count = req.query.count || process.env.MAX_RECORD_COUNT;
-
+  if(parseInt(rec_count) > process.env.MAX_RECORD_COUNT)
+  {
+    rec_count = process.env.MAX_RECORD_COUNT;
+  }
   if(irreversible == 'true')
   {
     try {
@@ -95,6 +98,10 @@ controller.get_contract_history = async (req, res)=>{
   let block_time_max = req.query["block_time_max"] || "";
   let actions = req.query["actions"] || "";
   let rec_count = req.query.count || process.env.MAX_RECORD_COUNT;
+  if(parseInt(rec_count) > process.env.MAX_RECORD_COUNT)
+  {
+    rec_count = process.env.MAX_RECORD_COUNT;
+  }
 
   let strAction = "";
   if(actions != "")
@@ -174,7 +181,7 @@ controller.get_contract_history = async (req, res)=>{
     }
     else
     {
-      //    console.log(data.data.length);
+      //console.log(data.data.length);
 
       if(data.data.length > 0)
       {
