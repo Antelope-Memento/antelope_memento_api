@@ -172,4 +172,5 @@ status code: 200
 
 # Acknowledgments
 This work was sponsored by EOS Amsterdam block producer.
+
 Copyright 2023 Raj Kumar (raj.rpt@gmail.com)
