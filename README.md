@@ -45,6 +45,7 @@ Server start listening on the specified port number
 
 ## API 1
 url: http://localhost:54321/wax/is_healthy
+
 Method: /is_healthy ( GET )
 
 Response JSON: returns the execution result as below
@@ -58,6 +59,7 @@ Response JSON: returns the execution result as below
 
 ## API 2
 url: http://localhost:54321/wax/health
+
 Method: /health ( GET )
 
 Response JSON: returns the execution result with status code 200 & 503 as below
@@ -80,8 +82,11 @@ status code: 503
 
 ## API 3
 url: http://localhost:12345/wax/transaction?trx_id=transaction_id
+
 Method: /transaction ( GET )
+
 Query parameter: trx_id ( transaction id )
+
 Response JSON: returns the execution result with status code 200
 
 status code: 200
@@ -100,8 +105,11 @@ status code: 200
 
 ## API 4
 url: http://localhost:12345/wax/transaction_status?trx_id=transaction_id
+
 Method: /transaction_status ( GET )
+
 Query parameter: trx_id ( transaction id )
+
 Response JSON: returns the execution result with status code 200
 
 status code: 200
