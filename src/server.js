@@ -33,32 +33,41 @@ createClusteredServer(bind_ip, port, process.env.CPU_CORES);
 //create clustered server and bind with specified ip address and port number
 function createClusteredServer(ip, port, clusterSize)
 {
-  if (cluster.isMaster) {
-    console.log(`Master ${process.pid} is running`);
+  if(clusterSize > 1)
+  {
+    if (cluster.isMaster) {
+      console.log(`Master ${process.pid} is running`);
 
-    // Fork workers.
-    for (let i = 0; i < clusterSize; i++) {
-      cluster.fork();
+      // Fork workers.
+      for (let i = 0; i < clusterSize; i++) {
+        cluster.fork();
+      }
+
+      cluster.on('exit', (worker, code, signal) => {
+        console.log(`worker ${worker.process.pid} died`);
+        if(signal == 'SIGKILL')
+        {
+          gracefulExit();
+          process.exit(0);
+        }
+        else
+        {
+            cluster.fork();
+        }
+        console.log('Starting a new worker ');
+      });
+    } else {
+      app.listen(port, ip, () => {
+        console.log(`listening on port no ${port}`);
+      });
+      console.log(`Worker ${process.pid} started`);
     }
-
-    cluster.on('exit', (worker, code, signal) => {
-      console.log(`worker ${worker.process.pid} died`);
-      if(signal == 'SIGKILL')
-      {
-        gracefulExit();
-        process.exit(0);
-      }
-      else
-      {
-          cluster.fork();
-      }
-      console.log('Starting a new worker ');
-    });
-  } else {
+  }
+  else
+  {
     app.listen(port, ip, () => {
       console.log(`listening on port no ${port}`);
     });
-    console.log(`Worker ${process.pid} started`);
   }
 }
 
