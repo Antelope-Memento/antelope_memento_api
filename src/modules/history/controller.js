@@ -97,7 +97,7 @@ controller.get_account_history = async (req, res)=>{
         query = query + " and RECEIPTS.block_time <= '" + block_time_max + "'";
       }
 
-      query = query + " order by RECEIPTS.seq desc LIMIT " + rec_count;
+      query = query + " order by RECEIPTS.seq LIMIT " + rec_count;
 
       executeQuery(res, query, data.irreversible);
     }
