@@ -1,171 +1,175 @@
-# EOSIO Memento RPC Requirements
+# Antelope-Memento API
 
-Memento server should be configured as below -
+[Memento](https://github.com/Antelope-Memento/antelope_memento) is a
+lightweight history service for Antelope (ex-EOSIO) blockchains.
 
-1. RESTful API: all parameters in GET URL parameters
-2. Binding to a configurable address and port (`0.0.0.0:12345`, `127.0.0.1:54321`)
-3. allow multiple concurrent HTTP requests
-4. configurable for either Postgres or Mysql backend database
-5. configurable for api endpoint prefix ( http://localhost:12345/wax/health, http://localhost:12345/eos/health, http://localhost:12345/tlos/health )
+This Node.js package presents an HTTP API on top of Memento
+database. It supports both MySQL and Postgres backends.
 
-### RPC health requests
+## RESTful API
 
-1. `health`. Returns HTTP status 200 if the SYNC is up to date within 20 seconds from real time; 503 otherwise
+In all calls, the URL prefix is configurable, so if `API_PATH_PREFIX`
+is set to `wax`, the full URL for an API call would look like
+`http://yourhost/wax/get_transaction?trx_id=287d48f2de0e3d5e9474d6829b536a7895f612784e9b58a0653513cf9602e8fb`.
 
-2. `is_healthy`. Returns `{status, errormsg}`, Status is boolean, and if it's false, errormsg is mandatory and explaining the problem.
+Normally you would run an SSL termination proxy, such as nginx, in
+front of the API, so the end-user URL would be starting with
+`https://`.
 
-### transaction status requests
+All API calls are HTTP GET requests with mandatory and optional
+arguments.
 
-1. `get_transaction (trx_id)`. Returns: `{status, block_num, block_time, trace}`. Status is one of: `unknown`, `reversible`, `irreversible`
-2. `get_transaction_status (trx_id)`. Returns: `{status, block_num, block_time}`
 
-### history queries
+### `/health`
 
-1. `get_account_history (account, options)`. Options: `irreversible: boolean`, `block_num_min: uint`,
-`block_num_max: uint`, `block_time_min: DATETIME`, `block_time_max: DATETIME`. Returns: array of traces as in get_transaction.
+The call is useful for load balancers, as it reports the error in HTTP
+code if the backend is unhealthy.
 
-2. `get_contract_history (contract, options)`. Options: same as in get_account_history, plus `actions: ARRAY of strings`.
-Returns array of traces as in get_transaction.
+Arguments: none.
 
-# API Details
+Returns HTTP status 200 if the timestamp of the head block in the
+backend database is within 20 seconds from current time, or 503 if
+it's too far in the past.
 
-## How to run locally
+### `/is_healthy`
 
-1. Clone this repository
-1. Create .env file in root dir using example.env file with proper values
-1. Run from root dir using following commands
+The call is similar to `/health`, but it returns the status code 200
+if the database is operational, but not up to date.
 
-```
-npm install
-npm start
+Arguments: none.
 
-```
+Returns a JSON object with `status` and `errormsg` fields.  Status is
+boolean, and if it's false, errormsg is mandatory and explaining the
+problem.
 
-Server start listening on the specified port number
+### `/get_transaction`
 
-## API 1
-url: http://localhost:54321/wax/is_healthy
+The call is retrieving a transaction by its ID.
 
-Path: /is_healthy ( GET )
+Mandatory argument: `trx_id`.
 
-Response JSON: returns the execution result as below
+Returns a JSON object with fields `known` (boolean), `irreversible`
+(boolean, only if known is true) and `data` (the full transaction
+trace, only if known is true).
 
-```
-{
-  "status": true,
-  "errormsg": "Healthy"
-}
-```
+If a transaction ID is not found in the database, the result has known=false.
 
-## API 2
-url: http://localhost:54321/wax/health
+### `/get_transaction_status`
 
-Path: /health ( GET )
+The call checks if a transaction ID is known to the database.
 
-Response JSON: returns the execution result with status code 200 & 503 as below
+Mandatory argument: `trx_id`.
 
-status code: 200
+Returns a JSON object with fields `known` (boolean), `irreversible`
+(boolean, only if known is true), `block_num` and `block_time` (only
+if known is true).
 
-```
-{
-  "msg": "Healthy"
-}
-```
+If a transaction ID is not found in the database, the result has known=false.
 
-status code: 503
 
-```
-{
-  "msg": "The data was updated 19800 seconds ago"
-}
-```
+### `/get_account_history`
 
-## API 3
-url: http://localhost:12345/wax/get_transaction?trx_id=transaction_id
+The call retrieves transaction traces that are relevant to a specified
+account, and it allows narrowing the scope by optional arguments.
 
-Path: /get_transaction ( GET )
+Mandatory argument: `account`.
 
-Query parameter: trx_id ( transaction id string type )
+Optional arguments:
 
-Response JSON: returns the execution result with status code 200
+* `irreversible` (boolean): if set to true, the result will only contain irreversible transactions.
 
-status code: 200
+* `block_num_min` (uint): starting block number. If not specified, the
+  API searches from the earliest available block.
 
-```
-{
-"irreversible": true,
-"block_num": 224308181,
-"block_time": "2023-01-13T09:19:50.000Z",
-"trace": {
-  ...
-  }
-}
-```
+* `block_num_max` (uint): ending block number.
 
-## API 4
-url: http://localhost:12345/wax/get_transaction_status?trx_id=transaction_id
+* `block_time_min` (DATETIME), `block_time_max` (DATETIME): starting
+  and ending timestamp in ISO 8601 format in UTC zone
+  (e.g. "2007-04-05T14:30")
 
-Path: /get_transaction_status ( GET )
+* `count` (uint): maximum number of records. The result is also
+  limited by MAX_RECORD_COUNT configuration setting, so the count
+  parameter may reduce the output if desired.
 
-Query parameter: trx_id ( transaction id string type )
+The call returns a JSON object with the fields
+`last_irreversible_block` (uint) and `data` (array of traces). The
+array is empty if nothing is found.
 
-Response JSON: returns the execution result with status code 200
 
-status code: 200
+### `get_contract_history`
 
-```
-{
-  "irreversible": true,
-  "block_num": 224308181,
-  "block_time": "2023-01-13T09:19:50.000Z"
-}
-```
+The contract is similar to `/get_account_history`, but it returns all
+traces relevant to a smart contract.
 
-## API 5
-url: http://localhost:12345/wax/get_account_history?account=account_name&irreversible=false&block_num_min=224763920&block_num_max=224763922&block_time_min=2023-01-17T06:40:04&block_time_max=2023-01-17T06:47:05
+Mandatory argument: `contract`.
 
-Path: /get_account_history ( GET )
+Optional arguments same as in `/get_account_history`, plus:
 
-Query parameters: contract (string type), irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min ( datetime ), block_time_max ( datetime )
+* `actions` (string): comma-separated list of contract actions. If
+  defined, the output will be filtered accordingly.
 
-Optional parameters: block_num_min, block_num_max, block_time_min, block_time_max
 
-Response JSON: returns the execution result (list of trace objects) with status code 200
 
-status code: 200
+## Installation
 
 ```
-{
-  "data": [
-    {
-      ...
-    }
-  ]
-}
+# install Node.js LTS
+curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+apt-get install -y nodejs
+
+# get the API
+git clone https://github.com/Antelope-Memento/antelope_memento_api.git /opt/antelope_memento_api
+cd /opt/antelope_memento_api
+npm ci
+cp systemd/memento_api\@.service /etc/systemd/system/
+
+# example for a WAX MySQL database
+cat >/etc/opt/memento_api_wax.env <<'EOT'
+SERVER_BIND_IP = 127.0.0.1
+SERVER_BIND_PORT = 3001
+MYSQL_DB_HOST = 10.0.3.210
+MYSQL_DB_PORT = 3306
+MYSQL_DB_USER = memento_ro
+MYSQL_DB_PWD = memento_ro
+MYSQL_DB_NAME = memento_wax
+CONNECTION_POOL = 10
+DATABASE_SELECT = "MYSQL"
+HEALTHY_SYNC_TIME_DIFF = 15000
+API_PATH_PREFIX = wax
+CPU_CORES = 4
+MAX_RECORD_COUNT = 100
+EOT
+
+systemctl enable memento_api@wax
+systemctl start memento_api@wax
+
+# example for a WAX Postgres database
+cat >/etc/opt/memento_api_waxpg.env <<'EOT'
+SERVER_BIND_IP = 127.0.0.1
+SERVER_BIND_PORT = 3002
+POSTGRES_DB_HOST = 10.0.3.211
+POSTGRES_DB_PORT = 5432
+POSTGRES_DB_USER = memento_ro
+POSTGRES_DB_PWD = memento_ro
+POSTGRES_DB_NAME = memento_wax
+CONNECTION_POOL = 10
+DATABASE_SELECT = "POSTGRES"
+HEALTHY_SYNC_TIME_DIFF = 15000
+API_PATH_PREFIX = waxpg
+CPU_CORES = 4
+MAX_RECORD_COUNT = 100
+EOT
+
+systemctl enable memento_api@waxpg
+systemctl start memento_api@waxpg
 ```
 
-## API 6
-url: http://localhost:12345/wax/get_contract_history?contract=contract_name&irreversible=true&block_num_min=224763920&block_num_max=224763922&block_time_min=2023-01-17T06:40:04&block_time_max=2023-01-17T06:47:05&actions=repair,recover,claim
+## Configuration
 
-Path: /get_contract_history ( GET )
+TODO: document the env options here
 
-Query parameters: contract (string type), irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min ( datetime ), block_time_max ( datetime ), actions ( list of action: string type )
 
-Optional parameters: block_num_min, block_num_max, block_time_min, block_time_max, actions
 
-Response JSON: returns the execution result (list of trace objects) with status code 200
-
-status code: 200
-
-```
-{
-  "data": [
-    {
-      ...
-    }
-  ]
-}
-```
 
 # Acknowledgments
 This work was sponsored by EOS Amsterdam block producer.
