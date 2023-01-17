@@ -2,7 +2,7 @@
   "name": "memento-apis",
   "version": "1.0.0",
   "description": "Memento api server",
-  "main": "server.js",
+  "main": "src/server.js",
   "scripts": {
     "test": "test",
     "start": "nodemon src/server.js"

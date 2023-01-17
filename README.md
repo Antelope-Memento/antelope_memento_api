@@ -36,7 +36,7 @@ Returns array of traces as in get_transaction.
 1. Run from root dir using following commands
 
 ```
-npm update
+npm install
 npm start
 
 ```
@@ -111,6 +111,54 @@ status code: 200
   "status": "executed",
   "block_num": 224308181,
   "block_time": "2023-01-13T09:19:50.000Z"
+}
+```
+
+## API 5
+url: http://localhost:12345/wax/account_history?account=account_name&irreversible=false&block_num_min=224763920&block_num_max=224763922&block_time_min=2023/01/16 06:09:04&block_time_max=2023/01/16 06:09:05
+
+Method: /account_history ( GET )
+
+Query parameters: contract, irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min (datetime), block_time_max(datetime)
+
+Response JSON: returns the execution result with status code 200
+
+status code: 200
+
+```
+{
+  "data": [
+    {
+      "trace": {
+        "type": "Buffer",
+        "data": [...]
+      }
+    }
+  ]
+}
+```
+
+## API 6
+url: http://localhost:12345/wax/contract_history?contract=contract_name&irreversible=true&block_num_min=224763920&block_num_max=224763922&block_time_min=2023/01/16 06:09:04&block_time_max=2023/01/16 06:09:05&actions=repair,recover,claim
+
+Method: /contract_history ( GET )
+
+Query parameters: contract, irreversible ( boolean ), block_num_min ( uint ), block_num_max ( uint ), block_time_min (datetime), block_time_max(datetime), actions ( list of action: string type )
+
+Response JSON: returns the execution result with status code 200
+
+status code: 200
+
+```
+{
+  "data": [
+    {
+      "trace": {
+        "type": "Buffer",
+        "data": [...]
+      }
+    }
+  ]
 }
 ```
 
