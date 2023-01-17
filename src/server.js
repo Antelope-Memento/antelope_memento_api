@@ -11,8 +11,8 @@ const dbUtility = require("./utilities/db");
 const app      = express();
 
 app.use(cors({
-              origin: "*",
-            }));
+  origin: "*",
+}));
 
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :remote-addr'));
 app.use(express.json());
@@ -52,7 +52,7 @@ function createClusteredServer(ip, port, clusterSize)
         }
         else
         {
-            cluster.fork();
+          cluster.fork();
         }
         console.log('Starting a new worker ');
       });
@@ -85,7 +85,7 @@ process.on('uncaughtException', function(error) {
 });
 
 process.on('unhandledRejection', function(reason, p){
-    console.log('unhandledRejection ' + reason);
+  console.log('unhandledRejection ' + reason);
 });
 
 module.exports = app;

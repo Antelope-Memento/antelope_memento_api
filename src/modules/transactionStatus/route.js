@@ -3,7 +3,7 @@ const constroller = require("./controller");
 
 const router = express.Router();
 
-router.get("/transaction", constroller.get_transaction);
-router.get("/transaction_status", constroller.get_transaction_status);
+router.get("/get_transaction", constroller.get_transaction);
+router.get("/get_transaction_status", constroller.get_transaction_status);
 
 module.exports = router;

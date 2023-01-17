@@ -23,9 +23,9 @@ controller.health = async (req, res)=>{
         var now_utc = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
         let timeDiff = now_utc.getTime() - block_time.getTime();
 
-      //  console.log(now_utc.toISOString());
-    //    console.log(dt.toISOString());
-      //  console.log('time diff ' + timeDiff);
+        //  console.log(now_utc.toISOString());
+        //  console.log(dt.toISOString());
+        //  console.log('time diff ' + timeDiff);
 
         if(timeDiff <= process.env.HEALTHY_SYNC_TIME_DIFF)
         {
@@ -57,13 +57,13 @@ controller.is_healthy = async (req, res)=>{
       if(data.data.length > 0)
       {
         let rec = data.data[0];
-      //  console.log(rec);
-      //  console.log(rec.block_time);
+        //  console.log(rec);
+        //  console.log(rec.block_time);
         let block_time = new Date(rec.block_time);
         var now = new Date();
         var now_utc = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
         let timeDiff = now_utc.getTime() - block_time.getTime();
-    //    console.log('time diff ' + timeDiff);
+        //    console.log('time diff ' + timeDiff);
 
         if(timeDiff <= process.env.HEALTHY_SYNC_TIME_DIFF)
         {

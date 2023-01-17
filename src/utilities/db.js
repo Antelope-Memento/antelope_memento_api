@@ -17,80 +17,80 @@ const CreateMySqlConnectionPool = ()=>{
 
   var serverCon = 0;
   var trackMySqlConnections = function trackPoolConnections(pool, limit) {
-        pool.on('acquire', (conn) => {
-          serverCon++;
+    pool.on('acquire', (conn) => {
+      serverCon++;
 
-          conn.timoutHandle = setTimeout(() => {
-            console.log('mysql db connection ' + serverCon);
-            console.log('Connection %d acquired past limit!', conn.threadId); }, limit);
-        });
-        pool.on('release', (conn) => {
-          serverCon--;
-          if (conn.timoutHandle) clearTimeout(conn.timoutHandle);
-        });
+      conn.timoutHandle = setTimeout(() => {
+        console.log('mysql db connection ' + serverCon);
+        console.log('Connection %d acquired past limit!', conn.threadId); }, limit);
+      });
+      pool.on('release', (conn) => {
+        serverCon--;
+        if (conn.timoutHandle) clearTimeout(conn.timoutHandle);
+      });
+    };
+
+    trackMySqlConnections(pool, 600000);
+
+    pool.on('connection', function (connection) {
+      console.log('mysql db connections ' + pool._allConnections.length );
+    });
+
+    pool.on('enqueue', function () {
+      console.log('Waiting for available mysql connection slot');
+    });
+
+    dbUtility["connection"] = pool;
+  }
+
+  const CreatePostgresConnectionPool = ()=>{
+
+    const pool = new Pool({
+      user: process.env.POSTGRES_DB_USER,
+      host: process.env.POSTGRES_DB_HOST,
+      database: process.env.POSTGRES_DB_NAME,
+      password: process.env.POSTGRES_DB_PWD,
+      port: process.env.POSTGRES_DB_PORT,
+      max: process.env.MYSQL_CONN_POOL // specify the maximum number of connections in the pool
+    });
+
+    dbUtility["connection"] = pool;
+  }
+
+  dbUtility.CreateConnectionPool = ()=>{
+    if(process.env.DATABASE_SELECT == constant.MYSQL_DB)
+    {
+      CreateMySqlConnectionPool();
+    }
+    else
+    {
+      CreatePostgresConnectionPool();
+    }
+  };
+  
+  dbUtility.CloseConnection = ()=>{
+    dbUtility.connection?.end();
   };
 
-  trackMySqlConnections(pool, 600000);
-
-  pool.on('connection', function (connection) {
-    console.log('mysql db connections ' + pool._allConnections.length );
-  });
-
-  pool.on('enqueue', function () {
-    console.log('Waiting for available mysql connection slot');
-  });
-
-  dbUtility["connection"] = pool;
-}
-
-const CreatePostgresConnectionPool = ()=>{
-
-  const pool = new Pool({
-    user: process.env.POSTGRES_DB_USER,
-    host: process.env.POSTGRES_DB_HOST,
-    database: process.env.POSTGRES_DB_NAME,
-    password: process.env.POSTGRES_DB_PWD,
-    port: process.env.POSTGRES_DB_PORT,
-    max: process.env.MYSQL_CONN_POOL // specify the maximum number of connections in the pool
-  });
-
-  dbUtility["connection"] = pool;
-}
-
-dbUtility.CreateConnectionPool = ()=>{
-  if(process.env.DATABASE_SELECT == constant.MYSQL_DB)
-  {
-    CreateMySqlConnectionPool();
-  }
-  else
-  {
-    CreatePostgresConnectionPool();
-  }
-};
-
-dbUtility.CloseConnection = ()=>{
-  dbUtility.connection?.end();
-};
-
-dbUtility.ExecuteQuery = (query, result)=>{
+  dbUtility.ExecuteQuery = (query, result)=>{
     dbUtility.connection.query(query, (error, results) => {
-    if (error) {
-      console.log(error);
-      result({status:'error', msg:'db error'});
-    }
-    else {
-      if(process.env.DATABASE_SELECT == constant.MYSQL_DB)
-      {
-      //  console.log('Mysql db');
-        result({status:'success', data:results});
+      if (error) {
+        console.log(error);
+        result({status:'error', msg: JSON.stringify(error)});
       }
-      else
-      {
-      //  console.log('Postgress db');
-        result({status:'success', data:results.rows});
+      else {
+        if(process.env.DATABASE_SELECT == constant.MYSQL_DB)
+        {
+          //  console.log('Mysql db');
+          result({status:'success', data:results});
+        }
+        else
+        {
+          //  console.log('Postgress db');
+          result({status:'success', data:results.rows});
+        }
       }
-    }
-  })
-};
+    })
+  };
 
-module.exports = dbUtility;
+  module.exports = dbUtility;
