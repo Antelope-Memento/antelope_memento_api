@@ -10,22 +10,16 @@ const sendTraces = async (res, traces, irreversibleBlock) =>
   if(traces.length > 0)
   {
     res.status(constant.HTTP_200_CODE);
-    res.write('{ data:[');
+    res.write('{ \"data\":[');
     traces.forEach((item, i) => {
-      res.write('{');
-    //  let strTrace = item.trace.toString('utf8');
       res.write(item.trace);
       if(i < traces.length - 1)
       {
-        res.write('},');
-      }
-      else
-      {
-        res.write('}');
+        res.write(',');
       }
     });
 
-    res.write('],last_irreversible_block:' + irreversibleBlock);
+    res.write('],\"last_irreversible_block\":' + irreversibleBlock);
     res.write('}');
     res.end();
   }
