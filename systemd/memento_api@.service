@@ -1,0 +1,15 @@
+[Unit]
+Description=Antelope Memento API
+[Service]
+Type=simple
+WorkingDirectory=/opt/antelope_memento_api
+ExecStart=/usr/bin/node -r dotenv/config src/server.js dotenv_config_path=/etc/opt/memento_api_%i.env
+TimeoutStartSec=10s
+TimeoutStopSec=10s
+Restart=always
+RestartSec=10
+User=root
+Group=daemon
+KillMode=control-group
+[Install]
+WantedBy=multi-user.target
