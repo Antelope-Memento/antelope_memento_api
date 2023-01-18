@@ -57,7 +57,7 @@ controller.get_transaction = async (req, res)=>{
           {
             res.status(constant.HTTP_200_CODE);
             res.write('{\"known\":true, \"irreversible\":' + (rec.block_num > data.irreversible ? 'false':'true') +
-                      ',\"data\":');
+            ',\"data\":');
             res.write(rec.trace);
             res.write('}');
             res.end();
@@ -106,19 +106,19 @@ controller.get_transaction_status = async (req, res)=>{
               irreversible: (rec.block_num > data.irreversible ? false:true),
               block_num: rec.block_num,
               block_time: rec.block_time});
-          }
-          else
-          {
-            res.status(constant.HTTP_500_CODE).send({"errormsg":constant.DB_READ_ERROR});
-          }
-        });
+            }
+            else
+            {
+              res.status(constant.HTTP_500_CODE).send({"errormsg":constant.DB_READ_ERROR});
+            }
+          });
+        }
+        else
+        {
+          res.status(constant.HTTP_200_CODE).send({known: false});
+        }
       }
-      else
-      {
-        res.status(constant.HTTP_200_CODE).send({known: false});
-      }
-    }
-  });
-}
+    });
+  }
 
-module.exports = controller;
+  module.exports = controller;

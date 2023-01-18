@@ -155,58 +155,58 @@ controller.get_contract_history = async (req, res)=>{
   }
 
 
-    try {
-      let data = await txn.getIrreversibleBlockNumber();
-      if(data.status == 'success')
+  try {
+    let data = await txn.getIrreversibleBlockNumber();
+    if(data.status == 'success')
+    {
+      if(irreversible == 'true')
       {
-        if(irreversible == 'true')
+        if(block_num_max > data.irreversible)
         {
-          if(block_num_max > data.irreversible)
-          {
-            block_num_max = data.irreversible;
-          }
+          block_num_max = data.irreversible;
         }
-
-        let query = "select TRANSACTIONS.trace from (select distinct seq from ACTIONS " +
-            "where contract='" + contract + "'";
-
-        if(block_num_min != "")
-        {
-          query = query + " and ACTIONS.block_num >= " + block_num_min;
-        }
-        if(block_num_max != "")
-        {
-          query = query + " and ACTIONS.block_num <= " + block_num_max;
-        }
-
-        if(block_time_min != "")
-        {
-          query = query + " and ACTIONS.block_time >= '" + block_time_min + "'";
-        }
-        if(block_time_max != "")
-        {
-          query = query + " and ACTIONS.block_time <= '" + block_time_max + "'";
-        }
-        if(strAction != "")
-        {
-          query = query + " and ACTIONS.action IN " + strAction;
-        }
-
-        query = query + " order by ACTIONS.seq LIMIT " + rec_count +
-              ") as X INNER JOIN TRANSACTIONS ON X.seq = TRANSACTIONS.seq";
-        executeQuery(res, query, data.irreversible);
       }
-      else
+
+      let query = "select TRANSACTIONS.trace from (select distinct seq from ACTIONS " +
+      "where contract='" + contract + "'";
+
+      if(block_num_min != "")
       {
-        res.status(constant.HTTP_500_CODE).send({"errormsg":constant.DB_READ_ERROR});
-        return;
+        query = query + " and ACTIONS.block_num >= " + block_num_min;
       }
+      if(block_num_max != "")
+      {
+        query = query + " and ACTIONS.block_num <= " + block_num_max;
+      }
+
+      if(block_time_min != "")
+      {
+        query = query + " and ACTIONS.block_time >= '" + block_time_min + "'";
+      }
+      if(block_time_max != "")
+      {
+        query = query + " and ACTIONS.block_time <= '" + block_time_max + "'";
+      }
+      if(strAction != "")
+      {
+        query = query + " and ACTIONS.action IN " + strAction;
+      }
+      
+      query = query + " order by ACTIONS.seq LIMIT " + rec_count +
+      ") as X INNER JOIN TRANSACTIONS ON X.seq = TRANSACTIONS.seq";
+      executeQuery(res, query, data.irreversible);
     }
-    catch(e)
+    else
     {
       res.status(constant.HTTP_500_CODE).send({"errormsg":constant.DB_READ_ERROR});
       return;
     }
+  }
+  catch(e)
+  {
+    res.status(constant.HTTP_500_CODE).send({"errormsg":constant.DB_READ_ERROR});
+    return;
+  }
 }
 
 module.exports = controller;
