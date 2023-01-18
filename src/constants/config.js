@@ -6,7 +6,7 @@ module.exports = constant = {
   RECORD_NOT_FOUND: "Record not found",
   DB_READ_ERROR: "Unable to read db",
   MSG_HEALTHY: "Healthy",
-  MSG_INCORRECT_PARAM: "Incorrect query parameter",
+  MSG_INCORRECT_PARAM: "Incorrect query parameter:",
 
   //HTTP Status codes
   HTTP_200_CODE: 200,

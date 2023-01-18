@@ -10,6 +10,16 @@ const dbUtility = require("./utilities/db");
 
 const app      = express();
 
+const required_options = ['SERVER_BIND_IP', 'SERVER_BIND_PORT', 'DATABASE_SELECT', 'HEALTHY_SYNC_TIME_DIFF',
+'API_PATH_PREFIX', 'CPU_CORES', 'MAX_RECORD_COUNT', 'CONNECTION_POOL'];
+
+required_options.forEach((item, i) => {
+  if( process.env[item] === undefined ) {
+    console.error(`Environment option ${item} is not defined`);
+    process.exit(1);
+  }
+});
+
 app.use(cors({
   origin: "*",
 }));
