@@ -36,7 +36,7 @@ controller.get_transaction = async (req, res)=>{
 
   if(trx_id == "")
   {
-    res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM});
+    res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' trx_id'});
     return;
   }
 
@@ -82,7 +82,7 @@ controller.get_transaction_status = async (req, res)=>{
 
   if(trx_id == "")
   {
-    res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM});
+    res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' trx_id'});
     return;
   }
 
