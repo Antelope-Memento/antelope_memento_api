@@ -33,9 +33,8 @@ Returns array of traces as in get_transaction.
 
 1. Clone this repository
 1. Create .env file in root dir using example.env file with proper values
-```
-example.env file https://github.com/ts0709/MementoAPIs/blob/main/example.env
-```
+example.env file is located at https://github.com/ts0709/MementoAPIs/blob/main/example.env
+
 1. Run from root dir using following commands
 
 ```
@@ -171,7 +170,7 @@ status code: 200
 ```
 
 ## Environment parameters
-To set the environment parameters, copy example.env `https://github.com/ts0709/MementoAPIs/blob/main/example.env` a new file `.env` before server start
+To set the environment parameters, copy example.env https://github.com/ts0709/MementoAPIs/blob/main/example.env a new file `.env` before server start
 
 ```
 SERVER_BIND_IP = 0.0.0.0 // Server bind IP address
