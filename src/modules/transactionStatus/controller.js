@@ -32,7 +32,13 @@ controller.getIrreversibleBlockNumber = ()=>{
 }
 
 controller.get_transaction = async (req, res)=>{
-  let trx_id = req.query["trx_id"];
+  let trx_id = req.query["trx_id"] || "";
+
+  if(trx_id == "")
+  {
+    res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM});
+    return;
+  }
 
   let query = "select block_num, block_time, trace from TRANSACTIONS where trx_id='" + trx_id + "'";
   db.ExecuteQuery(query, (data)=>{
@@ -72,7 +78,13 @@ controller.get_transaction = async (req, res)=>{
 
 controller.get_transaction_status = async (req, res)=>{
 
-  let trx_id = req.query["trx_id"];
+  let trx_id = req.query["trx_id"] || "";
+
+  if(trx_id == "")
+  {
+    res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM});
+    return;
+  }
 
   let query = "select block_num, block_time from TRANSACTIONS where trx_id='" + trx_id + "'";
   db.ExecuteQuery(query, (data)=>{

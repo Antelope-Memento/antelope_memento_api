@@ -50,8 +50,13 @@ const executeQuery = (res, query, irreversibleBlock) =>
 }
 
 controller.get_account_history = async (req, res)=>{
-  let account = req.query["account"];
-  let irreversible = req.query["irreversible"];
+  let account = req.query["account"] || "";
+  let irreversible = req.query["irreversible"] || "";
+  if(account == "" || irreversible == "")
+  {
+    res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM});
+    return;
+  }
   let block_num_min = req.query["block_num_min"]   || "";
   let block_num_max = req.query["block_num_max"]   || "";
   let block_time_min = req.query["block_time_min"] || "";
@@ -115,8 +120,13 @@ controller.get_account_history = async (req, res)=>{
 }
 
 controller.get_contract_history = async (req, res)=>{
-  let contract = req.query["contract"];
-  let irreversible = req.query["irreversible"];
+  let contract = req.query["contract"] || "";
+  let irreversible = req.query["irreversible"] || "";
+  if(contract == "" || irreversible == "")
+  {
+    res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM});
+    return;
+  }
   let block_num_min = req.query["block_num_min"]   || "";
   let block_num_max = req.query["block_num_max"]   || "";
   let block_time_min = req.query["block_time_min"] || "";

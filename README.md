@@ -166,10 +166,32 @@ systemctl start memento_api@waxpg
 
 ## Configuration
 
-TODO: document the env options here
+```
+SERVER_BIND_IP = 0.0.0.0 // Server bind IP address
+SERVER_BIND_PORT = 12345 // Server bind port
 
+MYSQL_DB_HOST = ----  //MYSQL DB host name
+MYSQL_DB_PORT = ----  //MYSQL DB port
+MYSQL_DB_USER = ----  //MYSQL DB username
+MYSQL_DB_PWD = ----   //MYSQL DB password
+MYSQL_DB_NAME = ----  //MYSQL DB name
 
+POSTGRES_DB_HOST = ---- //POSTGRES DB host name
+POSTGRES_DB_PORT = ---- //POSTGRES DB port
+POSTGRES_DB_USER = ---- //POSTGRES DB username
+POSTGRES_DB_PWD = ----  //POSTGRES DB password
+POSTGRES_DB_NAME = ---- //POSTGRES DB name
 
+CONNECTION_POOL = 10            // DB max connection pool size
+DATABASE_SELECT = "MYSQL"       // Specify which Db type to select MYSQL or POSTGRES
+HEALTHY_SYNC_TIME_DIFF = 15000  // Health check sync time interval
+API_PATH_PREFIX = wax           // API path prefix wax, eos, tlos
+
+CPU_CORES = 2   // number of cpu cores, value should not exceed max number of cores available in the system
+
+MAX_RECORD_COUNT = 10  // maximum number of records that can be returned in a single request
+
+```
 
 # Acknowledgments
 This work was sponsored by EOS Amsterdam block producer.
