@@ -3,14 +3,10 @@ const cors    = require("cors");
 const morgan  = require("morgan");
 const cluster = require('cluster');
 
-var { graphqlHTTP } = require('express-graphql');
-var { buildSchema } = require('graphql');
-
 require("dotenv").config();
 
 const router    = require("./routes/routes");
 const dbUtility = require("./utilities/db");
-const graph_ql = require("./utilities/graph_ql");
 
 const app      = express();
 
@@ -41,12 +37,6 @@ dbUtility.CreateConnectionPool();
 
 var port = process.env.SERVER_BIND_PORT || 12345;
 var bind_ip = process.env.SERVER_BIND_IP || '0.0.0.0';
-
-app.use('/graphql', graphqlHTTP({
-  schema: graph_ql.schema,
-  rootValue: graph_ql.resolver,
-  graphiql: true,
-}));
 
 createClusteredServer(bind_ip, port, process.env.CPU_CORES);
 
@@ -90,6 +80,7 @@ function createClusteredServer(ip, port, clusterSize)
     });
   }
 }
+
 
 var gracefulExit = function() {
   console.log('Close DB connection');
