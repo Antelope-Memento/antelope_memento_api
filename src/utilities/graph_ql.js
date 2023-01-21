@@ -30,7 +30,7 @@
       irreversible: Boolean!,
       block_num: String!,
       block_time: String!,
-      data: String!
+      data: GraphQLJSON!
     },
     type history_data {
       last_irreversible_block: Int!,
@@ -101,10 +101,11 @@
         }
 
         let retVal = await txnController.getTransactionInfo(args.trx_id);
+        // console.log(retVal);
         if(retVal.code == 200)
         {
           return {known: retVal.known, irreversible: false, block_num:retVal.block_num,
-            block_time:retVal.block_time, data:""} ;
+            block_time:retVal.block_time, data:retVal.data} ;
           }
           else
           {

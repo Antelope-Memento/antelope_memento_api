@@ -39,8 +39,6 @@ module.exports = constant = {
       message: 'Incorrect query parameter: trx_id',
       statusCode: 400
     },
-
-
     {
       name: 'DB_READ_ERR',
       message: 'Unable to read db',
