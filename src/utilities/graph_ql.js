@@ -38,8 +38,13 @@
     },
     type Query {
       health: health_status,
-      account_history(account: String!): history_data,
-      contract_history(contract: String!): history_data,
+
+      account_history(account: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
+        block_time_min: Int, block_time_max: Int, actions: String, count: Int): history_data,
+
+      contract_history(contract: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
+        block_time_min: Int, block_time_max: Int, actions: String, count: Int): history_data,
+
       transaction(trx_id: String!): transaction_status
     }
     `);
@@ -104,8 +109,10 @@
         // console.log(retVal);
         if(retVal.code == 200)
         {
+          let dataObj = retVal.data.toString();
+          let obj = JSON.parse(dataObj);
           return {known: retVal.known, irreversible: false, block_num:retVal.block_num,
-            block_time:retVal.block_time, data:retVal.data} ;
+            block_time:retVal.block_time, data:obj} ;
           }
           else
           {

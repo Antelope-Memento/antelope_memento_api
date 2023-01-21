@@ -39,7 +39,6 @@ controller.getTransactionInfo = async (trx_id)=>{
       {
         console.log(data.msg);
         resolve({code: constant.HTTP_500_CODE, "errormsg":data.msg, data:[]});
-    //    res.status(constant.HTTP_500_CODE).send({"errormsg":data.msg});
       }
       else
       {
@@ -50,33 +49,21 @@ controller.getTransactionInfo = async (trx_id)=>{
             if(data.status == 'success')
             {
               let irreversible = rec.block_num > data.irreversible ? false : true;
-              /*
-              res.status(constant.HTTP_200_CODE);
-              res.write('{\"known\":true, \"irreversible\":' + (rec.block_num > data.irreversible ? 'false':'true') +
-              ',\"data\":');
-              res.write(rec.trace);
-              res.write('}');
-              res.end();
-              */
               resolve({code: constant.HTTP_200_CODE, known: false, irreversible:irreversible,
                 block_num: rec.block_num, block_time: rec.block_time, "errormsg":"", data:rec.trace});
             }
             else
             {
               resolve({code: constant.HTTP_500_CODE, "errormsg":constant.DB_READ_ERROR, data:[]});
-
-            //  res.status(constant.HTTP_500_CODE).send({"errormsg":constant.DB_READ_ERROR});
             }
           });
         }
         else
         {
           resolve({code: constant.HTTP_200_CODE, known: false, irreversible: false, block_num: 0, block_time:"0", "errormsg":"Record not found", data:[]});
-        //  res.status(constant.HTTP_200_CODE).send({known: false});
         }
       }
     });
-
   });
 };
 
