@@ -5,12 +5,14 @@ const cluster = require('cluster');
 
 var { graphqlHTTP } = require('express-graphql');
 var { buildSchema } = require('graphql');
+const FormatError = require('easygraphql-format-error');
 
 require("dotenv").config();
 
 const router    = require("./routes/routes");
 const dbUtility = require("./utilities/db");
 const graph_ql = require("./utilities/graph_ql");
+const constant = require("./constants/config");
 
 const app      = express();
 
@@ -42,10 +44,18 @@ dbUtility.CreateConnectionPool();
 var port = process.env.SERVER_BIND_PORT || 12345;
 var bind_ip = process.env.SERVER_BIND_IP || '0.0.0.0';
 
-app.use('/graphql', graphqlHTTP({
+const formatError = new FormatError(constant.errors);
+const errorName = formatError.errorName
+
+app.use(`/${process.env.API_PATH_PREFIX}/graphql`, graphqlHTTP({
   schema: graph_ql.schema,
   rootValue: graph_ql.resolver,
   graphiql: true,
+  context: { errorName },
+    formatError: (err) => {
+      let obj = formatError.getError(err);
+      return obj;
+    }
 }));
 
 createClusteredServer(bind_ip, port, process.env.CPU_CORES);

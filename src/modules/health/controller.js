@@ -4,7 +4,7 @@ const db       = require("../../utilities/db");
 var controller = function(){
 };
 
-controller.getHealthStatus = async (result)=>{
+controller.getHealthStatus = async ()=>{
   return new Promise((resolve) => {
     let query = "select block_time from SYNC";
     db.ExecuteQuery(query, (data)=>{
