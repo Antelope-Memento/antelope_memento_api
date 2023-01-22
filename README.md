@@ -199,7 +199,9 @@ These APIs allows you to interact with the Antelope Memento history.
 
 ## Types
 
-### health       // health type
+### health
+
+// health type
 
 A single health item.
 
@@ -208,7 +210,9 @@ Fields:
 - status: Boolean!
 - msg: String!
 
-### transaction_status    // transaction status type
+### transaction_status
+
+// transaction status type
 
 A single transaction_status item.
 
@@ -220,7 +224,8 @@ Fields:
 - block_time: String!
 - data: [GraphQLJSON]!!
 
-### history     // history type
+### history
+// history type
 
 A single history item.
 
