@@ -222,7 +222,7 @@ Fields:
 - irreversible: Boolean!
 - block_num: String!
 - block_time: String!
-- data: [GraphQLJSON]!!
+- data: GraphQLJSON!
 
 ### history
 // history type
@@ -232,7 +232,7 @@ A single history item.
 Fields:
 
 - last_irreversible_block: Unsigned Int!
-- data: [GraphQLJSON]!!
+- data: [GraphQLJSON]!
 
 ### Query
 
