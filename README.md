@@ -247,6 +247,8 @@ Fields:
 - contract_history(contract: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
         block_time_min: Int, block_time_max: Int, actions: String, count: Int): history_data
 
+For parameter details refer `get_transaction_status`, `get_account_history` and `get_contract_history` section
+
 ### Mutation
 
 none
