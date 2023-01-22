@@ -193,6 +193,67 @@ MAX_RECORD_COUNT = 10  // maximum number of records that can be returned in a si
 
 ```
 
+# Memento APIs
+
+These APIs allows you to interact with the Antelope Memento history.
+
+## Types
+
+### health       // health type
+
+A single health item.
+
+Fields:
+
+- status: Boolean!
+- msg: String!
+
+### transaction_status    // transaction status type
+
+A single transaction_status item.
+
+Fields:
+
+- known: Boolean!
+- irreversible: Boolean!
+- block_num: String!
+- block_time: String!
+- data: [GraphQLJSON]!!
+
+### history     // history type
+
+A single history item.
+
+Fields:
+
+- last_irreversible_block: Unsigned Int!
+- data: [GraphQLJSON]!!
+
+### Query
+
+Fields:
+- health: String
+
+- get_transaction(trx_id: String!): transaction_status
+
+account_history(account: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
+      block_time_min: Int, block_time_max: Int, actions: String, count: Int): history_data
+
+- contract_history(contract: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
+        block_time_min: Int, block_time_max: Int, actions: String, count: Int): history_data
+
+### Mutation
+
+none
+
+### Error
+
+- message : Data send error ( statusCode: 500 )
+- message : Record not found ( statusCode: 500 )
+- message : Unable to read db ( statusCode: 500 )
+- message : Incorrect query parameter ( statusCode: 400 )
+
+
 # Acknowledgments
 This work was sponsored by EOS Amsterdam block producer.
 

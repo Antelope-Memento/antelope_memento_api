@@ -31,12 +31,12 @@ module.exports = constant = {
     },
     {
       name: 'CONTRACT_NAME_INVALID',
-      message: 'Incorrect query parameter: trx_id',
+      message: 'Incorrect query parameter: contract',
       statusCode: 400
     },
     {
       name: 'ACCOUNT_NAME_INVALID',
-      message: 'Incorrect query parameter: trx_id',
+      message: 'Incorrect query parameter: account',
       statusCode: 400
     },
     {

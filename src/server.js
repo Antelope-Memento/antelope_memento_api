@@ -52,7 +52,7 @@ app.use(`/${process.env.API_PATH_PREFIX}/graphql`, graphqlHTTP({
   rootValue: graph_ql.resolver,
   graphiql: true,
   context: { errorName },
-    formatError: (err) => {
+    customFormatErrorFn: (err) => {
       let obj = formatError.getError(err);
       return obj;
     }

@@ -34,7 +34,7 @@ graphql.schema = buildSchema(`
   },
   type history_data {
     last_irreversible_block: Int!,
-    data:[GraphQLJSON]
+    data:[GraphQLJSON]!
   },
   type Query {
     health: health_status,
@@ -112,7 +112,7 @@ graphql.schema = buildSchema(`
             throw new Error(errorName.TRX_ID_INVALID);
             return;
           }
-          
+
           let retVal = await txnController.getTransactionInfo(args.trx_id);
           // console.log(retVal);
           if(retVal.code == 200)
