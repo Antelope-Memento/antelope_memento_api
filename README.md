@@ -193,7 +193,7 @@ MAX_RECORD_COUNT = 10  // maximum number of records that can be returned in a si
 
 ```
 
-# Memento APIs
+# GraphQL Memento APIs
 
 These APIs allows you to interact with the Antelope Memento history.
 
