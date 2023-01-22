@@ -133,27 +133,10 @@ controller.execute_account_history = async (obj, account)=>{
       let block_num_max = obj["block_num_max"]   || "";
       let block_time_min = obj["block_time_min"] || "";
       let block_time_max = obj["block_time_max"] || "";
-      let actions = obj["actions"] || "";
       let rec_count = obj.count || process.env.MAX_RECORD_COUNT;
       if(parseInt(rec_count) > process.env.MAX_RECORD_COUNT)
       {
         rec_count = process.env.MAX_RECORD_COUNT;
-      }
-
-      let strAction = "";
-      if(actions != "")
-      {
-        let listAction = actions.split(',');
-        strAction = "(";
-        listAction.forEach((item, i) => {
-          if(i > 0)
-          {
-            strAction = strAction + ",";
-          }
-          strAction =  strAction + "'" + item + "'";
-        });
-
-        strAction = strAction + ")";
       }
 
       let data = await txn.getIrreversibleBlockNumber();

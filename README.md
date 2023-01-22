@@ -242,7 +242,7 @@ Fields:
 - get_transaction(trx_id: String!): transaction_status
 
 - account_history(account: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
-      block_time_min: Int, block_time_max: Int, actions: String, count: Int): history_data
+      block_time_min: Int, block_time_max: Int, count: Int): history_data
 
 - contract_history(contract: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
         block_time_min: Int, block_time_max: Int, actions: String, count: Int): history_data
