@@ -47,6 +47,12 @@ var bind_ip = process.env.SERVER_BIND_IP || '0.0.0.0';
 const formatError = new FormatError(constant.errors);
 const errorName = formatError.errorName
 
+const loggingMiddleware = (req, res, next) => {
+  console.log('GraphQL req.body: ', req.body);
+  next();
+}
+
+app.use(loggingMiddleware);
 app.use(`/${process.env.API_PATH_PREFIX}/graphql`, graphqlHTTP({
   schema: graph_ql.schema,
   rootValue: graph_ql.resolver,
