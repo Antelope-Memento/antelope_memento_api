@@ -48,7 +48,7 @@ const formatError = new FormatError(constant.errors);
 const errorName = formatError.errorName
 
 const loggingMiddleware = (req, res, next) => {
-  console.log('GraphQL req.body: ', req.body);
+  console.log('GraphQL req.body: ', JSON.stringify(req.body));
   next();
 }
 
