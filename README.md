@@ -110,6 +110,60 @@ Optional arguments same as in `/get_account_history`, plus:
 
 
 
+## GraphQL API
+
+The GraphQL interface is accessible at `/graphql` location from the
+base URL (e.g. `https://memento.eu.eosamsterdam.net/wax/graphql`). It
+allows performing the same requests as in the RESTful API.
+
+
+## Types
+
+* `health_status`:
+  - `status: Boolean!`
+  - `msg: String!`
+
+* `transaction_status`:
+  - `known: Boolean!`
+  - `irreversible: Boolean!`
+  - `block_num: String!`
+  - `block_time: String!`
+  - `data: GraphQLJSON!`
+
+* `history_data`:
+  - `last_irreversible_block: Unsigned Int!`
+  - `data: [GraphQLJSON]!`
+
+## Queries
+
+The following queries are supported:
+
+* `health`: returns `health_status`
+
+* `account_history`: returns `history_data`
+  - `account: String!`
+  - `irreversible: Boolean`
+  - `block_num_min: Int`
+  - `block_num_max: Int`
+  - `block_time_min: String`
+  - `block_time_max: String`
+  - `count: Int`
+
+* `contract_history`: returns `history_data`
+  - `contract: String!`
+  - `irreversible: Boolean`
+  - `block_num_min: Int`
+  - `block_num_max: Int`
+  - `block_time_min: String`
+  - `block_time_max: String`
+  - `count: Int`
+
+* `transaction`: returns transaction_status
+  - `trx_id: String!`
+
+
+
+
 ## Installation
 
 ```
@@ -193,72 +247,6 @@ MAX_RECORD_COUNT = 10  // maximum number of records that can be returned in a si
 
 ```
 
-# GraphQL Memento APIs
-
-These APIs allows you to interact with the Antelope Memento history.
-
-## Types
-
-### health
-
-// health type
-
-A single health item.
-
-Fields:
-
-- status: Boolean!
-- msg: String!
-
-### transaction_status
-
-// transaction status type
-
-A single transaction_status item.
-
-Fields:
-
-- known: Boolean!
-- irreversible: Boolean!
-- block_num: String!
-- block_time: String!
-- data: GraphQLJSON!
-
-### history
-// history type
-
-A single history item.
-
-Fields:
-
-- last_irreversible_block: Unsigned Int!
-- data: [GraphQLJSON]!
-
-### Query
-
-Fields:
-- health: String
-
-- get_transaction(trx_id: String!): transaction_status
-
-- account_history(account: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
-      block_time_min: Int, block_time_max: Int, count: Int): history_data
-
-- contract_history(contract: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
-        block_time_min: Int, block_time_max: Int, actions: String, count: Int): history_data
-
-For parameter details refer `get_transaction_status`, `get_account_history` and `get_contract_history` section
-
-### Mutation
-
-none
-
-### Error
-
-- message : Data send error ( statusCode: 500 )
-- message : Record not found ( statusCode: 500 )
-- message : Unable to read db ( statusCode: 500 )
-- message : Incorrect query parameter ( statusCode: 400 )
 
 
 # Acknowledgments
