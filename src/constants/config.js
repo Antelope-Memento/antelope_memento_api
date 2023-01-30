@@ -23,4 +23,27 @@ module.exports = constant = {
   MYSQL_DB: "MYSQL",
   POSTGRES_DB: "POSTGRES",
 
+  errors: [
+    {
+      name: 'TRX_ID_INVALID',
+      message: 'Incorrect query parameter: trx_id',
+      statusCode: 400
+    },
+    {
+      name: 'CONTRACT_NAME_INVALID',
+      message: 'Incorrect query parameter: contract',
+      statusCode: 400
+    },
+    {
+      name: 'ACCOUNT_NAME_INVALID',
+      message: 'Incorrect query parameter: account',
+      statusCode: 400
+    },
+    {
+      name: 'DB_READ_ERR',
+      message: 'Unable to read db',
+      statusCode: 500
+    }
+],
+
 };
