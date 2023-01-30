@@ -117,7 +117,7 @@ base URL (e.g. `https://memento.eu.eosamsterdam.net/wax/graphql`). It
 allows performing the same requests as in the RESTful API.
 
 
-## Types
+### Types
 
 * `health_status`:
   - `status: Boolean!`
@@ -134,7 +134,7 @@ allows performing the same requests as in the RESTful API.
   - `last_irreversible_block: Unsigned Int!`
   - `data: [GraphQLJSON]!`
 
-## Queries
+### Queries
 
 The following queries are supported:
 
