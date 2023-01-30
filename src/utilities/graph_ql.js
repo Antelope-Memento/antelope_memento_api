@@ -40,10 +40,10 @@ graphql.schema = buildSchema(`
     health: health_status,
 
     account_history(account: String!, irreversible: Boolean, block_num_min: Int, block_num_max: Int,
-      block_time_min: Int, block_time_max: Int, count: Int): history_data,
+      block_time_min: String, block_time_max: String, count: Int): history_data,
 
       contract_history(contract: String!, irreversible: Boolean, block_num_min: Int, block_num_max: Int,
-        block_time_min: Int, block_time_max: Int, actions: String, count: Int): history_data,
+        block_time_min: String, block_time_max: String, actions: String, count: Int): history_data,
 
         transaction(trx_id: String!): transaction_status
       }
