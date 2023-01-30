@@ -49,83 +49,83 @@ graphql.schema = buildSchema(`
       }
       `);
 
-      // resolver function for each API endpoint
-      graphql.resolver = {
-        health: async function () {
-          let retVal = await healthController.getHealthStatus();
-          return {status: retVal.status, msg: retVal.errormsg} ;
-        },
+// resolver function for each API endpoint
+graphql.resolver = {
+  health: async function () {
+    let retVal = await healthController.getHealthStatus();
+    return {status: retVal.status, msg: retVal.errormsg} ;
+  },
 
-        account_history: async (args)=> {
-          let account = args["account"] || "";
-          if(account == "")
-          {
-            throw new Error(errorName.ACCOUNT_NAME_INVALID);
-            return;
-          }
+  account_history: async (args)=> {
+    let account = args["account"] || "";
+    if(account == "")
+    {
+      throw new Error(errorName.ACCOUNT_NAME_INVALID);
+      return;
+    }
 
-          let retVal = await historyController.execute_account_history(args, account);
-          // console.log(retVal);
-          if(retVal.code == 200)
-          {
-            for(let i = 0; i < retVal.data.length; i++)
-            {
-              retVal.data[i].trace = JSON.parse(retVal.data[i].trace);
-            }
-            return {last_irreversible_block: retVal.irreversibleBlock, data:retVal.data} ;
-          }
-          else
-          {
-            throw new Error(errorName.DB_READ_ERR);
-          }
-        },
+    let retVal = await historyController.execute_account_history(args, account);
+    // console.log(retVal);
+    if(retVal.code == 200)
+    {
+      for(let i = 0; i < retVal.data.length; i++)
+      {
+        retVal.data[i].trace = JSON.parse(retVal.data[i].trace);
+      }
+      return {last_irreversible_block: retVal.irreversibleBlock, data:retVal.data} ;
+    }
+    else
+    {
+      throw new Error(errorName.DB_READ_ERR);
+    }
+  },
 
-        contract_history: async (args)=> {
-          let contract = args["contract"] || "";
-          if(contract == "")
-          {
-            throw new Error(errorName.CONTRACT_NAME_INVALID);
-            return;
-          }
+  contract_history: async (args)=> {
+    let contract = args["contract"] || "";
+    if(contract == "")
+    {
+      throw new Error(errorName.CONTRACT_NAME_INVALID);
+      return;
+    }
 
-          let retVal = await historyController.execute_contract_history(args, contract);
-          //console.log(retVal);
+    let retVal = await historyController.execute_contract_history(args, contract);
+    //console.log(retVal);
 
-          if(retVal.code == 200)
-          {
-            for(let i = 0; i < retVal.data.length; i++)
-            {
-              retVal.data[i].trace = JSON.parse(retVal.data[i].trace);
-            }
-            return {last_irreversible_block: retVal.irreversibleBlock, data:retVal.data} ;
-          }
-          else
-          {
-            throw new Error(errorName.DB_READ_ERR);
-          }
-        },
+    if(retVal.code == 200)
+    {
+      for(let i = 0; i < retVal.data.length; i++)
+      {
+        retVal.data[i].trace = JSON.parse(retVal.data[i].trace);
+      }
+      return {last_irreversible_block: retVal.irreversibleBlock, data:retVal.data} ;
+    }
+    else
+    {
+      throw new Error(errorName.DB_READ_ERR);
+    }
+  },
 
-        transaction: async (args)=> {
-          let trx_id = args["trx_id"] || "";
-          if(trx_id == '')
-          {
-            throw new Error(errorName.TRX_ID_INVALID);
-            return;
-          }
+  transaction: async (args)=> {
+    let trx_id = args["trx_id"] || "";
+    if(trx_id == '')
+    {
+      throw new Error(errorName.TRX_ID_INVALID);
+      return;
+    }
 
-          let retVal = await txnController.getTransactionInfo(args.trx_id);
-          // console.log(retVal);
-          if(retVal.code == 200)
-          {
-            let obj = JSON.parse(retVal.data);
-            return {known: retVal.known, irreversible: false, block_num:retVal.block_num,
+    let retVal = await txnController.getTransactionInfo(args.trx_id);
+    // console.log(retVal);
+    if(retVal.code == 200)
+    {
+      let obj = JSON.parse(retVal.data);
+      return {known: retVal.known, irreversible: false, block_num:retVal.block_num,
               block_time:retVal.block_time, data:obj};
-            }
-            else
-            {
-              throw new Error(errorName.DB_READ_ERR);
-            }
-          },
-        };
+    }
+    else
+    {
+      throw new Error(errorName.DB_READ_ERR);
+    }
+  },
+};
 
-        module.exports = graphql;
+module.exports = graphql;
