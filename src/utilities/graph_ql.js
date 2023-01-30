@@ -42,12 +42,11 @@ graphql.schema = buildSchema(`
     account_history(account: String!, irreversible: Boolean, block_num_min: Int, block_num_max: Int,
       block_time_min: String, block_time_max: String, count: Int): history_data,
 
-      contract_history(contract: String!, irreversible: Boolean, block_num_min: Int, block_num_max: Int,
-        block_time_min: String, block_time_max: String, actions: String, count: Int): history_data,
+    contract_history(contract: String!, irreversible: Boolean, block_num_min: Int, block_num_max: Int,
+      block_time_min: String, block_time_max: String, actions: String, count: Int): history_data,
 
-        transaction(trx_id: String!): transaction_status
-      }
-      `);
+    transaction(trx_id: String!): transaction_status
+   }`);
 
 // resolver function for each API endpoint
 graphql.resolver = {
