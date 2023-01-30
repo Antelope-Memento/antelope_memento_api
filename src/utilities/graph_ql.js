@@ -64,6 +64,34 @@ graphql.schema = buildSchema(`
             return;
           }
 
+          const regex = new RegExp(/[a-z1-5.]{1,13}/);
+          if(regex.test(account) == false)
+          {
+            throw new Error(errorName.ACCOUNT_NAME_INVALID);
+            return;
+          }
+
+          var isoRegx = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+          let block_time_min = args["block_time_min"] || "";
+          let block_time_max = args["block_time_max"] || "";
+          if(block_time_min != "")
+          {
+            if(isoRegx.test(block_time_min) == false)
+            {
+              throw new Error(errorName.TIME_MIN_INVALID);
+              return;
+            }
+          }
+          if(block_time_max != "")
+          {
+            if(isoRegx.test(block_time_max) == false)
+            {
+              throw new Error(errorName.TIME_MAX_INVALID);
+              return;
+            }
+          }
+
           let retVal = await historyController.execute_account_history(args, account);
           // console.log(retVal);
           if(retVal.code == 200)
@@ -88,6 +116,47 @@ graphql.schema = buildSchema(`
             return;
           }
 
+          const regex = new RegExp(/[a-z1-5.]{1,13}/);
+          if(regex.test(contract) == false)
+          {
+            throw new Error(errorName.CONTRACT_NAME_INVALID);
+            return;
+          }
+
+          var isoRegx = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+          let block_time_min = args["block_time_min"] || "";
+          let block_time_max = args["block_time_max"] || "";
+          if(block_time_min != "")
+          {
+            if(isoRegx.test(block_time_min) == false)
+            {
+              throw new Error(errorName.TIME_MIN_INVALID);
+              return;
+            }
+          }
+          if(block_time_max != "")
+          {
+            if(isoRegx.test(block_time_max) == false)
+            {
+              throw new Error(errorName.TIME_MAX_INVALID);
+              return;
+            }
+          }
+
+          let actions = args["actions"] || "";
+          if(actions != "")
+          {
+            let listAction = actions.split(',');
+            listAction.forEach((item, i) => {
+              if(regex.test(item) == false)
+              {
+                throw new Error(errorName.ACTION_NAME_INVALID);
+                return;
+              }
+            });
+          }
+          
           let retVal = await historyController.execute_contract_history(args, contract);
           //console.log(retVal);
 

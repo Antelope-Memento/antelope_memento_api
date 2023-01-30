@@ -40,6 +40,21 @@ module.exports = constant = {
       statusCode: 400
     },
     {
+      name: 'TIME_MIN_INVALID',
+      message: 'Incorrect query parameter: block_time_min',
+      statusCode: 400
+    },
+    {
+      name: 'TIME_MAX_INVALID',
+      message: 'Incorrect query parameter: block_time_max',
+      statusCode: 400
+    },
+    {
+      name: 'ACTION_NAME_INVALID',
+      message: 'Incorrect query parameter: action name',
+      statusCode: 400
+    },
+    {
       name: 'DB_READ_ERR',
       message: 'Unable to read db',
       statusCode: 500
