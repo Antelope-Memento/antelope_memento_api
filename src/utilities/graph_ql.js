@@ -7,6 +7,7 @@ const historyController    = require("../../src/modules/history/controller.js");
 
 const FormatError = require('easygraphql-format-error');
 const { GraphQLJSON, GraphQLJSONObject } = require('graphql-type-json');
+const constant = require("../constants/config");
 
 var graphql = function(){
 };
@@ -57,42 +58,7 @@ graphql.schema = buildSchema(`
         },
 
         account_history: async (args)=> {
-          let account = args["account"] || "";
-          if(account == "")
-          {
-            throw new Error(errorName.ACCOUNT_NAME_INVALID);
-            return;
-          }
-
-          const regex = new RegExp(/[a-z1-5.]{1,13}/);
-          if(regex.test(account) == false)
-          {
-            throw new Error(errorName.ACCOUNT_NAME_INVALID);
-            return;
-          }
-
-          var isoRegx = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
-
-          let block_time_min = args["block_time_min"] || "";
-          let block_time_max = args["block_time_max"] || "";
-          if(block_time_min != "")
-          {
-            if(isoRegx.test(block_time_min) == false)
-            {
-              throw new Error(errorName.TIME_MIN_INVALID);
-              return;
-            }
-          }
-          if(block_time_max != "")
-          {
-            if(isoRegx.test(block_time_max) == false)
-            {
-              throw new Error(errorName.TIME_MAX_INVALID);
-              return;
-            }
-          }
-
-          let retVal = await historyController.execute_account_history(args, account);
+          let retVal = await historyController.execute_account_history(args);
           // console.log(retVal);
           if(retVal.code == 200)
           {
@@ -104,63 +70,30 @@ graphql.schema = buildSchema(`
           }
           else
           {
-            throw new Error(errorName.DB_READ_ERR);
+            if(retVal.code == constant.HTTP_500_CODE)
+            {
+              throw new Error(errorName.DB_READ_ERR);
+            }
+            else if(retVal.code == constant.VALIDATION_ERR_INVALID_ACCOUNT)
+            {
+              throw new Error(errorName.ACCOUNT_NAME_INVALID);
+            }
+            else if(retVal.code == constant.VALIDATION_ERR_INVALID_TIME_MIN)
+            {
+              throw new Error(errorName.TIME_MIN_INVALID);
+            }
+            else if(retVal.code == constant.VALIDATION_ERR_INVALID_TIME_MAX)
+            {
+              throw new Error(errorName.TIME_MAX_INVALID);
+            }
           }
         },
 
         contract_history: async (args)=> {
-          let contract = args["contract"] || "";
-          if(contract == "")
-          {
-            throw new Error(errorName.CONTRACT_NAME_INVALID);
-            return;
-          }
-
-          const regex = new RegExp(/[a-z1-5.]{1,13}/);
-          if(regex.test(contract) == false)
-          {
-            throw new Error(errorName.CONTRACT_NAME_INVALID);
-            return;
-          }
-
-          var isoRegx = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
-
-          let block_time_min = args["block_time_min"] || "";
-          let block_time_max = args["block_time_max"] || "";
-          if(block_time_min != "")
-          {
-            if(isoRegx.test(block_time_min) == false)
-            {
-              throw new Error(errorName.TIME_MIN_INVALID);
-              return;
-            }
-          }
-          if(block_time_max != "")
-          {
-            if(isoRegx.test(block_time_max) == false)
-            {
-              throw new Error(errorName.TIME_MAX_INVALID);
-              return;
-            }
-          }
-
-          let actions = args["actions"] || "";
-          if(actions != "")
-          {
-            let listAction = actions.split(',');
-            listAction.forEach((item, i) => {
-              if(regex.test(item) == false)
-              {
-                throw new Error(errorName.ACTION_NAME_INVALID);
-                return;
-              }
-            });
-          }
-          
-          let retVal = await historyController.execute_contract_history(args, contract);
+          let retVal = await historyController.execute_contract_history(args);
           //console.log(retVal);
 
-          if(retVal.code == 200)
+          if(retVal.code == constant.HTTP_200_CODE)
           {
             for(let i = 0; i < retVal.data.length; i++)
             {
@@ -170,7 +103,26 @@ graphql.schema = buildSchema(`
           }
           else
           {
-            throw new Error(errorName.DB_READ_ERR);
+            if(retVal.code == constant.HTTP_500_CODE)
+            {
+              throw new Error(errorName.DB_READ_ERR);
+            }
+            else if(retVal.code == constant.VALIDATION_ERR_INVALID_CONTRACT)
+            {
+              throw new Error(errorName.CONTRACT_NAME_INVALID);
+            }
+            else if(retVal.code == constant.VALIDATION_ERR_INVALID_TIME_MIN)
+            {
+              throw new Error(errorName.TIME_MIN_INVALID);
+            }
+            else if(retVal.code == constant.VALIDATION_ERR_INVALID_TIME_MAX)
+            {
+              throw new Error(errorName.TIME_MAX_INVALID);
+            }
+            else if(retVal.code == constant.VALIDATION_ERR_INVALID_ACTION)
+            {
+              throw new Error(errorName.ACTION_NAME_INVALID);
+            }
           }
         },
 
@@ -182,13 +134,27 @@ graphql.schema = buildSchema(`
             return;
           }
 
-          let retVal = await txnController.getTransactionInfo(args.trx_id);
-          // console.log(retVal);
-          if(retVal.code == 200)
-          {
-            let obj = JSON.parse(retVal.data);
-            return {known: retVal.known, irreversible: false, block_num:retVal.block_num,
-              block_time:retVal.block_time, data:obj};
+            let retVal = await txnController.getTransactionInfo(args.trx_id);
+            if(retVal.code == constant.HTTP_200_CODE)
+            {
+              if(retVal.errormsg == "")
+              {
+                let obj = JSON.parse(retVal.data);
+                if(obj.length > 0)
+                {
+                  return {known: retVal.known, irreversible: false, block_num:retVal.block_num,
+                    block_time:retVal.block_time, data:obj};
+                }
+                else
+                {
+                  throw new Error(errorName.DB_READ_ERR);
+                }
+              }
+              else
+              {
+                return {known: retVal.known, irreversible: false, block_num:retVal.block_num,
+                  block_time:retVal.block_time, data:[]};
+              }
             }
             else
             {

@@ -2,6 +2,9 @@ const constant = require("../../constants/config");
 const db       = require("../../utilities/db");
 const txn      = require("../transactionStatus/controller");
 
+const regex = new RegExp(/[a-z1-5.]{1,13}/);
+const isoRegx = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
 var controller = function(){
 };
 
@@ -29,15 +32,45 @@ const sendTraces = async (res, traces, irreversibleBlock) =>
   }
 }
 
-controller.execute_contract_history = async (obj, contract)=>{
+controller.execute_contract_history = async (obj)=>{
   return new Promise( async (resolve) => {
     try {
+      let contract = obj["contract"] || "";
+      if(contract == "")
+      {
+        resolve({code:constant.VALIDATION_ERR_INVALID_CONTRACT, "errormsg":""});
+        return;
+      }
+      if(regex.test(contract) == false)
+      {
+        resolve({code:constant.VALIDATION_ERR_INVALID_CONTRACT, "errormsg":""});
+        return;
+      }
+
       let irreversible = obj["irreversible"] || 'false';
       let block_num_min = obj["block_num_min"]   || "";
       let block_num_max = obj["block_num_max"]   || "";
       let block_time_min = obj["block_time_min"] || "";
       let block_time_max = obj["block_time_max"] || "";
       let actions = obj["actions"] || "";
+
+      if(block_time_min != "")
+      {
+        if(isoRegx.test(block_time_min) == false)
+        {
+          resolve({code:constant.VALIDATION_ERR_INVALID_TIME_MIN, "errormsg":""});
+          return;
+        }
+      }
+      if(block_time_max != "")
+      {
+        if(isoRegx.test(block_time_max) == false)
+        {
+          resolve({code:constant.VALIDATION_ERR_INVALID_TIME_MAX, "errormsg":""});
+          return;
+        }
+      }
+
       let rec_count = obj.count || process.env.MAX_RECORD_COUNT;
       if(parseInt(rec_count) > process.env.MAX_RECORD_COUNT)
       {
@@ -50,6 +83,11 @@ controller.execute_contract_history = async (obj, contract)=>{
         let listAction = actions.split(',');
         strAction = "(";
         listAction.forEach((item, i) => {
+          if(regex.test(item) == false)
+          {
+            resolve({code:constant.VALIDATION_ERR_INVALID_ACTION, "errormsg":""});
+            return;
+          }
           if(i > 0)
           {
             strAction = strAction + ",";
@@ -125,14 +163,44 @@ controller.execute_contract_history = async (obj, contract)=>{
   });
 }
 
-controller.execute_account_history = async (obj, account)=>{
+controller.execute_account_history = async (obj)=>{
   return new Promise(async (resolve) => {
     try {
+      let account = obj["account"] || "";
+      if(account == "")
+      {
+        resolve({code:constant.VALIDATION_ERR_INVALID_ACCOUNT, "errormsg":""});
+        return;
+      }
+      if(regex.test(account) == false)
+      {
+        resolve({code:constant.VALIDATION_ERR_INVALID_ACCOUNT, "errormsg":""});
+        return;
+      }
+
       let irreversible = obj["irreversible"] || 'false';
       let block_num_min = obj["block_num_min"]   || "";
       let block_num_max = obj["block_num_max"]   || "";
       let block_time_min = obj["block_time_min"] || "";
       let block_time_max = obj["block_time_max"] || "";
+
+      if(block_time_min != "")
+      {
+        if(isoRegx.test(block_time_min) == false)
+        {
+          resolve({code:constant.VALIDATION_ERR_INVALID_TIME_MIN, "errormsg":""});
+          return;
+        }
+      }
+      if(block_time_max != "")
+      {
+        if(isoRegx.test(block_time_max) == false)
+        {
+          resolve({code:constant.VALIDATION_ERR_INVALID_TIME_MAX, "errormsg":""});
+          return;
+        }
+      }
+
       let rec_count = obj.count || process.env.MAX_RECORD_COUNT;
       if(parseInt(rec_count) > process.env.MAX_RECORD_COUNT)
       {
@@ -201,15 +269,9 @@ controller.execute_account_history = async (obj, account)=>{
 }
 
 controller.get_account_history = async (req, res)=>{
-  let account = req.query["account"] || "";
-  if(account == "")
-  {
-    res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' account'});
-    return;
-  }
   try {
-    let retVal = await controller.execute_account_history(req.query, account);
-    if(retVal.code == 200)
+    let retVal = await controller.execute_account_history(req.query);
+    if(retVal.code == constant.HTTP_200_CODE)
     {
       try {
         await sendTraces(res, retVal.data, retVal.irreversibleBlock);
@@ -220,7 +282,22 @@ controller.get_account_history = async (req, res)=>{
     }
     else
     {
-      res.status(retVal.code).send({"errormsg":retVal.errormsg});
+      if(retVal.code == constant.HTTP_500_CODE)
+      {
+        res.status(retVal.code).send({"errormsg":retVal.errormsg});
+      }
+      else if(retVal.code == constant.VALIDATION_ERR_INVALID_ACCOUNT)
+      {
+        res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' account'});
+      }
+      else if(retVal.code == constant.VALIDATION_ERR_INVALID_TIME_MIN)
+      {
+        res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' block_time_min'});
+      }
+      else if(retVal.code == constant.VALIDATION_ERR_INVALID_TIME_MAX)
+      {
+        res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' block_time_max'});
+      }
     }
   }
   catch(e)
@@ -231,15 +308,9 @@ controller.get_account_history = async (req, res)=>{
 }
 
 controller.get_contract_history = async (req, res)=>{
-  let contract = req.query["contract"] || "";
-  if(contract == "")
-  {
-    res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM});
-    return;
-  }
   try {
-    let retVal = await controller.execute_contract_history(req.query, contract);
-    if(retVal.code == 200)
+    let retVal = await controller.execute_contract_history(req.query);
+    if(retVal.code == constant.HTTP_200_CODE)
     {
       try {
         await sendTraces(res, retVal.data, retVal.irreversibleBlock);
@@ -250,7 +321,26 @@ controller.get_contract_history = async (req, res)=>{
     }
     else
     {
-      res.status(retVal.code).send({"errormsg":retVal.errormsg});
+      if(retVal.code == constant.HTTP_500_CODE)
+      {
+        res.status(retVal.code).send({"errormsg":retVal.errormsg});
+      }
+      else if(retVal.code == constant.VALIDATION_ERR_INVALID_CONTRACT)
+      {
+        res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' contract'});
+      }
+      else if(retVal.code == constant.VALIDATION_ERR_INVALID_TIME_MIN)
+      {
+        res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' block_time_min'});
+      }
+      else if(retVal.code == constant.VALIDATION_ERR_INVALID_TIME_MAX)
+      {
+        res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' block_time_max'});
+      }
+      else if(retVal.code == constant.VALIDATION_ERR_INVALID_ACTION)
+      {
+        res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' action name'});
+      }
     }
   }
   catch(e)

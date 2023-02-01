@@ -34,6 +34,7 @@ controller.getIrreversibleBlockNumber = ()=>{
 controller.getTransactionInfo = async (trx_id)=>{
   return new Promise((resolve) => {
     let query = "select block_num, block_time, trace from TRANSACTIONS where trx_id='" + trx_id + "'";
+
     db.ExecuteQuery(query, (data)=>{
       if(data.status == 'error')
       {
