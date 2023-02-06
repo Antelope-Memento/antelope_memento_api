@@ -40,23 +40,21 @@ graphql.schema = buildSchema(`
   type Query {
     health: health_status,
 
-    account_history(account: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
-      block_time_min: Int, block_time_max: Int, count: Int): history_data,
+    account_history(account: String!, irreversible: Boolean, block_num_min: Int, block_num_max: Int,
+      block_time_min: String, block_time_max: String, count: Int): history_data,
 
-      contract_history(contract: String!, irreversible: String, block_num_min: Int, block_num_max: Int,
-        block_time_min: Int, block_time_max: Int, actions: String, count: Int): history_data,
+    contract_history(contract: String!, irreversible: Boolean, block_num_min: Int, block_num_max: Int,
+      block_time_min: String, block_time_max: String, actions: String, count: Int): history_data,
 
-        transaction(trx_id: String!): transaction_status
-      }
-      `);
+    transaction(trx_id: String!): transaction_status
+   }`);
 
-      // resolver function for each API endpoint
-      graphql.resolver = {
+// resolver function for each API endpoint
+graphql.resolver = {
         health: async function () {
           let retVal = await healthController.getHealthStatus();
           return {status: retVal.status, msg: retVal.errormsg} ;
         },
-
         account_history: async (args)=> {
           let retVal = await historyController.execute_account_history(args);
           // console.log(retVal);
@@ -163,4 +161,4 @@ graphql.schema = buildSchema(`
           },
         };
 
-        module.exports = graphql;
+module.exports = graphql;
