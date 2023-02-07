@@ -2,7 +2,7 @@ const constant = require("../../constants/config");
 const db       = require("../../utilities/db");
 const txn      = require("../transactionStatus/controller");
 
-const regex = new RegExp(/[a-z1-5.]{1,13}/);
+const nameRegex = new RegExp(/[a-z1-5.]{1,13}/);
 const isoRegx = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
 
 var controller = function(){
@@ -41,7 +41,7 @@ controller.execute_contract_history = async (obj)=>{
         resolve({code:constant.VALIDATION_ERR_INVALID_CONTRACT, "errormsg":""});
         return;
       }
-      if(regex.test(contract) == false)
+      if(nameRegex.test(contract) == false)
       {
         resolve({code:constant.VALIDATION_ERR_INVALID_CONTRACT, "errormsg":""});
         return;
@@ -83,7 +83,7 @@ controller.execute_contract_history = async (obj)=>{
         let listAction = actions.split(',');
         strAction = "(";
         listAction.forEach((item, i) => {
-          if(regex.test(item) == false)
+          if(nameRegex.test(item) == false)
           {
             resolve({code:constant.VALIDATION_ERR_INVALID_ACTION, "errormsg":""});
             return;
@@ -172,7 +172,7 @@ controller.execute_account_history = async (obj)=>{
         resolve({code:constant.VALIDATION_ERR_INVALID_ACCOUNT, "errormsg":""});
         return;
       }
-      if(regex.test(account) == false)
+      if(nameRegex.test(account) == false)
       {
         resolve({code:constant.VALIDATION_ERR_INVALID_ACCOUNT, "errormsg":""});
         return;

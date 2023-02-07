@@ -1,6 +1,9 @@
 const constant = require("../../constants/config");
 const db       = require("../../utilities/db");
 
+const trxidRegex = new RegExp(/[0-9a-f]{64}/);
+
+
 var controller = function(){
 };
 
@@ -33,6 +36,11 @@ controller.getIrreversibleBlockNumber = ()=>{
 
 controller.getTransactionInfo = async (trx_id)=>{
   return new Promise((resolve) => {
+    if( ! trxidRegex.test(trx_id) )
+    {
+      resolve({code: constant.HTTP_500_CODE, "errormsg": "invalid trx_id", data:{}});
+    }
+    
     let query = "select block_num, block_time, trace from TRANSACTIONS where trx_id='" + trx_id + "'";
 
     db.ExecuteQuery(query, (data)=>{
@@ -118,7 +126,7 @@ controller.get_transaction_status = async (req, res)=>{
 
   let trx_id = req.query["trx_id"] || "";
 
-  if(trx_id == "")
+  if( ! trxidRegex.test(trx_id) )
   {
     res.status(constant.HTTP_400_CODE).send({"errormsg":constant.MSG_INCORRECT_PARAM + ' trx_id'});
     return;
