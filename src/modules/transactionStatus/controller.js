@@ -39,7 +39,7 @@ controller.getTransactionInfo = async (trx_id)=>{
       if(data.status == 'error')
       {
         console.log(data.msg);
-        resolve({code: constant.HTTP_500_CODE, "errormsg":data.msg, data:[]});
+        resolve({code: constant.HTTP_500_CODE, "errormsg":data.msg, data:{}});
       }
       else
       {
@@ -50,18 +50,19 @@ controller.getTransactionInfo = async (trx_id)=>{
             if(data.status == 'success')
             {
               let irreversible = rec.block_num > data.irreversible ? false : true;
-              resolve({code: constant.HTTP_200_CODE, known: false, irreversible:irreversible,
-                block_num: rec.block_num, block_time: rec.block_time, "errormsg":"", data:rec.trace});
+              resolve({code: constant.HTTP_200_CODE, known: true, irreversible:irreversible,
+                       block_num: rec.block_num, block_time: rec.block_time, "errormsg":"",
+                       data: JSON.parse(rec.trace.toString('utf8'))});
             }
             else
             {
-              resolve({code: constant.HTTP_500_CODE, "errormsg":constant.DB_READ_ERROR, data:[]});
+              resolve({code: constant.HTTP_500_CODE, "errormsg":constant.DB_READ_ERROR, data:{}});
             }
           });
         }
         else
         {
-          resolve({code: constant.HTTP_200_CODE, known: false, irreversible: false, block_num: 0, block_time:"0", "errormsg":"Record not found", data:[]});
+          resolve({code: constant.HTTP_200_CODE, known: false, irreversible: false, block_num: 0, block_time:"0", "errormsg":"Record not found", data:{}});
         }
       }
     });
