@@ -5,7 +5,7 @@ var controller = function() {};
 
 controller.getHealthStatus = async () => {
     return new Promise((resolve) => {
-        let query = "select block_time from SYNC";
+        let query = "select MAX(block_time) from SYNC";
         db.ExecuteQuery(query, (data) => {
             if (data.status == 'error') {
                 console.log(data.msg);

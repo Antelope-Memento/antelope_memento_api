@@ -1,5 +1,5 @@
 {
-  "name": "memento-apis",
+  "name": "memento-api",
   "version": "1.0.0",
   "description": "Memento api server",
   "main": "src/server.js",
@@ -10,12 +10,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@graphql-tools/schema": "^9.0.16",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
-    "easygraphql-format-error": "0.0.3",
     "express": "^4.18.2",
-    "express-graphql": "^0.12.0",
     "graphql": "^16.6.0",
+    "graphql-http": "^1.13.0",
     "graphql-type-json": "^0.3.2",
     "morgan": "^1.10.0",
     "mysql": "^2.18.1",

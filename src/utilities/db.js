@@ -95,4 +95,27 @@ dbUtility.ExecuteQuery = (query, result) => {
     })
 };
 
+
+
+
+dbUtility.GetIrreversibleBlockNumber = async () => {
+    return new Promise((resolve, reject) => {       
+        dbUtility.ExecuteQuery('select MAX(irreversible) from SYNC', (data) => {
+            if (data.status == 'error') {
+                console.log(data.msg);
+                reject(data.msg);
+            } else {
+                if (data.data.length > 0) {
+                    let rec = data.data[0];
+                    resolve(parseInt(rec.irreversible));
+                }
+                else {
+                    reject("SYNC table is empty");
+                }
+            }
+        });
+    });
+}
+        
+
 module.exports = dbUtility;

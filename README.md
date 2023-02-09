@@ -125,10 +125,10 @@ allows performing the same requests as in the RESTful API.
 
 * `transaction_status`:
   - `known: Boolean!`
-  - `irreversible: Boolean!`
-  - `block_num: String!`
-  - `block_time: String!`
-  - `data: GraphQLJSON!`
+  - `irreversible: Boolean`
+  - `block_num: String`
+  - `block_time: String`
+  - `data: GraphQLJSON`
 
 * `history_data`:
   - `last_irreversible_block: Unsigned Int!`
