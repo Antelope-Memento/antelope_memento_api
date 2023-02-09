@@ -1,12 +1,20 @@
-const { createHandler } = require('graphql-http/lib/use/express');
-const { buildSchema } = require('graphql');
-const { makeExecutableSchema } = require ('@graphql-tools/schema');
+const {
+    createHandler
+} = require('graphql-http/lib/use/express');
+const {
+    buildSchema
+} = require('graphql');
+const {
+    makeExecutableSchema
+} = require('@graphql-tools/schema');
 
-const healthController = require("../health/controller.js");
 const txnController = require("../transactionStatus/controller.js");
 const historyController = require("../history/controller.js");
 
-const { GraphQLJSON, GraphQLJSONObject } = require('graphql-type-json');
+const {
+    GraphQLJSON,
+    GraphQLJSONObject
+} = require('graphql-type-json');
 const constant = require("../../constants/config");
 
 var graphql = function() {};
@@ -18,11 +26,6 @@ const sdlSchema = `
   },
 
   scalar GraphQLJSON,
-
-  type health_status {
-    status: Boolean!,
-    msg: String!
-  },
 
   type transaction_status {
     known: Boolean!,
@@ -38,8 +41,6 @@ const sdlSchema = `
   },
 
   type Query {
-    health: health_status,
-
     account_history(account: String!, irreversible: Boolean, block_num_min: Int, block_num_max: Int,
       block_time_min: String, block_time_max: String, count: Int): history_data,
 
@@ -51,19 +52,15 @@ const sdlSchema = `
 
 // resolver function for each API endpoint
 const resolvers = {
-    async health (obj, args, context, info) {
-        return healthController.getHealthStatus();
-    },
-    
-    async account_history (obj, args, context, info) {
+    async account_history(obj, args, context, info) {
         return historyController.execute_account_history(args);
     },
 
-    async contract_history (obj, args, context, info) {
+    async contract_history(obj, args, context, info) {
         return historyController.execute_contract_history(args);
     },
 
-    async transaction (obj, args, context, info) {
+    async transaction(obj, args, context, info) {
         return txnController.graphql_get_transaction(args.trx_id);
     },
 };
@@ -72,6 +69,9 @@ const schema = makeExecutableSchema({
     typeDefs: sdlSchema,
     resolvers: {
         Query: resolvers
-    }});
+    }
+});
 
-module.exports = createHandler({ schema });
+module.exports = createHandler({
+    schema
+});

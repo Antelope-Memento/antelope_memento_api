@@ -43,6 +43,7 @@ const CreateMySqlConnectionPool = () => {
     dbUtility["connection"] = pool;
 }
 
+
 const CreatePostgresConnectionPool = () => {
 
     const pool = new Pool({
@@ -57,65 +58,65 @@ const CreatePostgresConnectionPool = () => {
     dbUtility["connection"] = pool;
 }
 
+
 dbUtility.CreateConnectionPool = () => {
     if (process.env.DATABASE_SELECT == constant.MYSQL_DB) {
         CreateMySqlConnectionPool();
-    } else {
+        dbUtility.is_mysql = true;
+    } else if (process.env.DATABASE_SELECT == constant.POSTGRES_DB) {
         CreatePostgresConnectionPool();
+        dbUtility.is_pg = true;
+    } else {
+        throw Error('Invalid value in env.DATABASE_SELECT: ' + process.env.DATABASE_SELECT);
     }
 };
+
 
 dbUtility.CloseConnection = () => {
     dbUtility.connection?.end();
 };
 
-dbUtility.ExecuteQuery = (query, result) => {
+
+dbUtility.ExecuteQuery = (query, resultRows) => {
     dbUtility.connection.query(query, (error, results) => {
         if (error) {
-            console.log(error);
-            result({
-                status: 'error',
-                msg: JSON.stringify(error)
-            });
-        } else {
-            if (process.env.DATABASE_SELECT == constant.MYSQL_DB) {
-                //  console.log('Mysql db');
-                result({
-                    status: 'success',
-                    data: results
-                });
-            } else {
-                //  console.log('Postgress db');
-                result({
-                    status: 'success',
-                    data: results.rows
-                });
-            }
+            throw error;
         }
-    })
+
+        if (dbUtility.is_mysql) {
+            resultRows(results);
+        } else {
+            resultRows(results.rows);
+        }
+    });
+};
+
+
+dbUtility.ExecuteQueryAsync = async (query) => {
+    return new Promise((resolve, reject) => {
+        try {
+            dbUtility.ExecuteQuery(query, (results) => {
+                resolve(results);
+            });
+        } catch (err) {
+            reject(err);
+        }
+    });
 };
 
 
 
-
 dbUtility.GetIrreversibleBlockNumber = async () => {
-    return new Promise((resolve, reject) => {       
-        dbUtility.ExecuteQuery('select MAX(irreversible) from SYNC', (data) => {
-            if (data.status == 'error') {
-                console.log(data.msg);
-                reject(data.msg);
+    return new Promise((resolve, reject) => {
+        dbUtility.ExecuteQuery('select MAX(irreversible) as irrev from SYNC', (data) => {
+            if (data.length > 0) {
+                resolve(parseInt(data[0].irrev));
             } else {
-                if (data.data.length > 0) {
-                    let rec = data.data[0];
-                    resolve(parseInt(rec.irreversible));
-                }
-                else {
-                    reject("SYNC table is empty");
-                }
+                reject("SYNC table is empty");
             }
         });
     });
 }
-        
+
 
 module.exports = dbUtility;

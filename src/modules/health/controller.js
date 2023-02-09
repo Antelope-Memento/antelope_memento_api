@@ -3,79 +3,35 @@ const db = require("../../utilities/db");
 
 var controller = function() {};
 
-controller.getHealthStatus = async () => {
-    return new Promise((resolve) => {
-        let query = "select MAX(block_time) from SYNC";
-        db.ExecuteQuery(query, (data) => {
-            if (data.status == 'error') {
-                console.log(data.msg);
-                resolve({
-                    status: false,
-                    "errormsg": data.msg,
-                    code: constant.HTTP_500_CODE
-                });
-            } else {
-                if (data.data.length > 0) {
-                    let rec = data.data[0];
-                    //  console.log(rec);
-                    //  console.log(rec.block_time);
-                    let block_time = new Date(rec.block_time);
-                    var now = new Date();
-                    var now_utc = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
-                    let timeDiff = now_utc.getTime() - block_time.getTime();
-                    //    console.log('time diff ' + timeDiff);
+async function isHealthy() {
+    let rows = await db.ExecuteQueryAsync('select MAX(block_time) as blktime from SYNC');
 
-                    if (timeDiff <= process.env.HEALTHY_SYNC_TIME_DIFF) {
-                        resolve({
-                            status: true,
-                            "errormsg": constant.MSG_HEALTHY,
-                            code: constant.HTTP_200_CODE
-                        });
-                    } else {
-                        resolve({
-                            status: false,
-                            "errormsg": 'The data was updated ' + Math.round(timeDiff / 1000) + ' seconds ago',
-                            code: constant.HTTP_503_CODE
-                        });
-                    }
-                } else {
-                    resolve({
-                        status: false,
-                        "errormsg": constant.RECORD_NOT_FOUND,
-                        code: constant.HTTP_500_CODE
-                    });
-                }
-            }
-        });
-    });
+    if (rows.length == 0) {
+        return Promise.reject(new Error('the SYNC table is empty'));
+    }
+
+    let block_time = new Date(rows[0].blktime);
+    var now = new Date();
+    var now_utc = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+    let timeDiff = now_utc.getTime() - block_time.getTime();
+    let status = (timeDiff <= process.env.HEALTHY_SYNC_TIME_DIFF) ? true : false;
+
+    return {
+        status: status,
+        diff: timeDiff
+    };
 }
+
 
 controller.health = async (req, res) => {
-    try {
-        let retVal = await controller.getHealthStatus();
-        res.status(retVal.code).send({
-            "msg": retVal.errormsg
-        });
-    } catch (e) {
-        res.status(constant.HTTP_500_CODE).send({
-            "msg": constant.DB_READ_ERROR
-        });
-    }
+    let retVal = await isHealthy();
+    res.status(retVal.status ? constant.HTTP_200_CODE : constant.HTTP_503_CODE)
+    res.send(retVal);
 }
 
+
 controller.is_healthy = async (req, res) => {
-    try {
-        let retVal = await controller.getHealthStatus();
-        res.status(retVal.code).send({
-            status: retVal.status,
-            "errormsg": retVal.errormsg
-        });
-    } catch (e) {
-        res.status(constant.HTTP_500_CODE).send({
-            status: false,
-            "errormsg": constant.DB_READ_ERROR
-        });
-    }
+    res.send(await isHealthy());
 }
 
 module.exports = controller;

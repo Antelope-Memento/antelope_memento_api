@@ -38,9 +38,9 @@ if the database is operational, but not up to date.
 
 Arguments: none.
 
-Returns a JSON object with `status` and `errormsg` fields.  Status is
-boolean, and if it's false, errormsg is mandatory and explaining the
-problem.
+Returns a JSON object with `status` and `diff` fields.  Status is
+boolean and `diff` indicates how long in milliseconds the database is
+behind the real time.
 
 ### `/get_transaction`
 
@@ -119,10 +119,6 @@ allows performing the same requests as in the RESTful API.
 
 ### Types
 
-* `health_status`:
-  - `status: Boolean!`
-  - `msg: String!`
-
 * `transaction_status`:
   - `known: Boolean!`
   - `irreversible: Boolean`
@@ -137,8 +133,6 @@ allows performing the same requests as in the RESTful API.
 ### Queries
 
 The following queries are supported:
-
-* `health`: returns `health_status`
 
 * `account_history`: returns `history_data`
   - `account: String!`
