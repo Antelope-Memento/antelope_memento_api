@@ -246,4 +246,4 @@ MAX_RECORD_COUNT = 10  // maximum number of records that can be returned in a si
 # Acknowledgments
 This work was sponsored by EOS Amsterdam block producer.
 
-Copyright 2023 Raj Kumar (raj.rpt@gmail.com)
+Copyright 2023 Raj Kumar (raj.rpt@gmail.com), cc32d9 (cc32d9@gmail.com)
