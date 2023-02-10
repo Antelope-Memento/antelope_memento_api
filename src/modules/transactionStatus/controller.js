@@ -8,7 +8,7 @@ var controller = function() {};
 
 async function readTransaction(trx_id, skip_trace) {
     if (!trxidRegex.test(trx_id)) {
-        return Promise.reject("invalid trx_id");
+        return Promise.reject(new Error("invalid trx_id"));
     }
 
     let results = await Promise.all(

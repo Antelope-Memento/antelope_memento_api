@@ -32,7 +32,7 @@ app.use(express.json());
 app.use(`/${process.env.API_PATH_PREFIX}`, router);
 
 app.get(`/${process.env.API_PATH_PREFIX}`, (req, res) => {
-    res.send("welcome to Memento apis");
+    res.send("Memento API");
 });
 
 dbUtility.CreateConnectionPool();

@@ -53,15 +53,30 @@ const sdlSchema = `
 // resolver function for each API endpoint
 const resolvers = {
     async account_history(obj, args, context, info) {
-        return historyController.execute_account_history(args);
+        try {
+            return await historyController.graphql_account_history(args);
+        } catch (err) {
+            console.error(err.message);
+            throw err;
+        }
     },
 
     async contract_history(obj, args, context, info) {
-        return historyController.execute_contract_history(args);
+        try {
+            return await historyController.graphql_contract_history(args);
+        } catch (err) {
+            console.error(err.message);
+            throw err;
+        }
     },
 
     async transaction(obj, args, context, info) {
-        return txnController.graphql_get_transaction(args.trx_id);
+        try {
+            return await txnController.graphql_get_transaction(args.trx_id);
+        } catch (err) {
+            console.error(err.message);
+            throw err;
+        }
     },
 };
 

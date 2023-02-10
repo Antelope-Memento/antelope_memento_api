@@ -56,6 +56,7 @@ const CreatePostgresConnectionPool = () => {
     });
 
     dbUtility["connection"] = pool;
+    console.log('postgres db connected');
 }
 
 

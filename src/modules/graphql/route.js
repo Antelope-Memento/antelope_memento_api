@@ -1,13 +1,14 @@
 const express = require("express");
-const constroller = require("./controller");
+const controller = require("./controller");
 
 const router = express.Router();
 
-router.use((req, res, next) => {
-    console.log('req.body: ', JSON.stringify(req.body));
+router.use('/graphql', (req, res, next) => {
+    console.log('graphql req: ', JSON.stringify(req.body));
     next();
 });
 
-router.use("/graphql", constroller);
+router.use('/graphql', controller);
+
 
 module.exports = router;
