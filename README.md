@@ -122,7 +122,7 @@ allows performing the same requests as in the RESTful API.
 * `transaction_status`:
   - `known: Boolean!`
   - `irreversible: Boolean`
-  - `block_num: String`
+  - `block_num: Int`
   - `block_time: String`
   - `data: GraphQLJSON`
 
