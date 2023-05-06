@@ -10,10 +10,9 @@ async function isHealthy() {
         return Promise.reject(new Error('the SYNC table is empty'));
     }
 
-    let block_time = new Date(rows[0].blktime);
-    var now = new Date();
-    var now_utc = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
-    let timeDiff = now_utc.getTime() - block_time.getTime();
+    let block_time = Date.parse(rows[0].blktime + 'Z');
+    var now = new Date().getTime();
+    let timeDiff = now - block_time;
     let status = (timeDiff <= process.env.HEALTHY_SYNC_TIME_DIFF) ? true : false;
 
     return {
