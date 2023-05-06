@@ -41,11 +41,8 @@ const sdlSchema = `
   },
 
   type Query {
-    account_history(account: String!, irreversible: Boolean, block_num_min: Int, block_num_max: Int,
-      block_time_min: String, block_time_max: String, count: Int): history_data,
-
-    contract_history(contract: String!, irreversible: Boolean, block_num_min: Int, block_num_max: Int,
-      block_time_min: String, block_time_max: String, actions: String, count: Int): history_data,
+    account_history(account: String!, irreversible: Boolean, max_count: Int, pos: Int,
+      action_filter: String): history_data,
 
     transaction(trx_id: String!): transaction_status
   }`;
@@ -55,15 +52,6 @@ const resolvers = {
     async account_history(obj, args, context, info) {
         try {
             return await historyController.graphql_account_history(args);
-        } catch (err) {
-            console.error(err.message);
-            throw err;
-        }
-    },
-
-    async contract_history(obj, args, context, info) {
-        try {
-            return await historyController.graphql_contract_history(args);
         } catch (err) {
             console.error(err.message);
             throw err;

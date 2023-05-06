@@ -120,4 +120,5 @@ dbUtility.GetIrreversibleBlockNumber = async () => {
 }
 
 
+
 module.exports = dbUtility;

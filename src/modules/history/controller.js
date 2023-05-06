@@ -2,13 +2,14 @@ const constant = require("../../constants/config");
 const db = require("../../utilities/db");
 const txn = require("../transactionStatus/controller");
 
-const integerRegex = new RegExp(/^[0-9]+$/);
+const uintRegex = new RegExp(/^[0-9]+$/);
+const intRegex = new RegExp(/^-?[0-9]+$/);
 const nameRegex = new RegExp(/^[a-z1-5.]{1,13}$/);
-const isoTimeRegx = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+const actionFilterRegex = new RegExp(/^[a-z1-5.]{1,13}:[a-z1-5.]{1,13}$/);
 
 var controller = function() {};
 
-// send array of traces into the HTTP response 
+// send array of traces into the HTTP response
 async function sendTraces(res, traces, irreversibleBlock) {
     res.status(constant.HTTP_200_CODE);
     res.write('{\"data\":[');
@@ -16,7 +17,9 @@ async function sendTraces(res, traces, irreversibleBlock) {
         if (i > 0) {
             res.write(',');
         }
+        res.write('{\"pos\":' + item.pos + ',"trace":');
         res.write(item.trace);
+        res.write('}');
     });
 
     res.write('],\"last_irreversible_block\":' + irreversibleBlock);
@@ -30,7 +33,7 @@ function formatHistoryData(traces, irreversibleBlock) {
     let ret = {};
     ret.data = new Array();
     traces.forEach((item) => {
-        ret.data.push(JSON.parse(item.trace.toString('utf8')));
+        ret.data.push({pos: item.pos, trace: JSON.parse(item.trace.toString('utf8'))});
     });
 
     ret.last_irreversible_block = irreversibleBlock;
@@ -38,16 +41,34 @@ function formatHistoryData(traces, irreversibleBlock) {
 }
 
 
-async function getLastIrreversibleBlock(args) {
-    if (args['last_irreversible_block'] !== undefined) {
-        return args['last_irreversible_block'];
-    } else {
-        return db.GetIrreversibleBlockNumber();
-    }
+async function GetMaxRecvSequence(account) {
+    return new Promise((resolve, reject) => {
+        db.ExecuteQuery(
+            'select recv_sequence_max from RECV_SEQUENCE_MAX where account_name=\'' + account + '\'',
+            (data) => {
+                if (data.length > 0) {
+                    resolve(parseInt(data[0].recv_sequence_max));
+                } else {
+                    resolve(0);
+                }
+            });
+    });
 }
 
 
-async function whereClause(args) {
+
+async function retrieveAccountHistory(args) {
+    let account = args['account'];
+    if ( account === undefined) {
+        return Promise.reject(new Error('missing account argument'));
+    }
+
+    if (!nameRegex.test(account)) {
+        return Promise.reject(new Error('invalid value in account: ' + args['account']));
+    }
+
+    let last_irreversible_block = await db.GetIrreversibleBlockNumber();
+
     let irrev = false;
     if (args['irreversible'] !== undefined) {
         if (args['irreversible'] == 'true' || args['irreversible'] === true) {
@@ -55,123 +76,59 @@ async function whereClause(args) {
         }
     }
 
-    for (const param of ['block_num_min', 'block_num_max']) {
-        if (args[param] !== undefined) {
-            if (!integerRegex.test(args[param])) {
-                return Promise.reject(new Error('invalid value in ' + param + ': ' + args[param]));
-            }
+    let pos = -1 * process.env.MAX_RECORD_COUNT;
+
+    if (args['pos'] !== undefined) {
+        pos = args['pos'];
+        if ( !intRegex.test(pos) ) {
+            throw Error('invalid value for pos: ' + pos);
         }
+        pos = parseInt(pos);
     }
 
-    for (const param of ['block_time_min', 'block_time_min']) {
-        if (args[param] !== undefined) {
-            if (!isoTimeRegx.test(args[param])) {
-                return Promise.reject(new Error('invalid value in ' + param + ': ' + args[param]));
-            }
+    if ( pos < 0 ) {
+        pos = await GetMaxRecvSequence(account) + pos;
+    }
+
+    let whereClause = 'receiver=\'' + account + '\' AND recv_sequence >= ' + pos;
+
+    let action_filter = args['action_filter'];
+    if ( action_filter !== undefined ) {
+        if( !actionFilterRegex.test(action_filter) ) {
+            throw Error('invalid value for action_filter: ' + action_filter);
         }
+
+        let filter = action_filter.split(':');
+        whereClause += ' AND contract=\'' + filter[0] + '\' AND action=\'' + filter[1] + '\'';
     }
 
     if (irrev) {
-        let irrev_block = await db.GetIrreversibleBlockNumber();
-        args['last_irreversible_block'] = irrev_block;
-        if (args['block_num_max'] === undefined || args['block_num_max'] > irrev_block) {
-            args['block_num_max'] = irrev_block;
-        }
+        whereClause += ' AND block_num <= ' + last_irreversible_block;
     }
 
-    let clause = '';
-    if (args['block_num_min'] !== undefined) {
-        clause += ' AND block_num >= ' + args['block_num_min'];
-    }
-
-    if (args['block_num_max'] !== undefined) {
-        clause += ' AND block_num <= ' + args['block_num_max'];
-    }
-
-    if (args['block_time_min'] !== undefined) {
-        clause += ' AND block_time >= \'' + args['block_time_min'] + '\'';
-    }
-
-    if (args['block_time_max'] !== undefined) {
-        clause += ' AND block_time >= \'' + args['block_time_max'] + '\'';
-    }
-
-    return clause;
-}
-
-
-function limitClause(args) {
     let limit = process.env.MAX_RECORD_COUNT;
-    if (args['count'] !== undefined) {
-        if (!integerRegex.test(args['count'])) {
-            throw Error('invalid value for count: ' + args['count']);
+    let max_count = args['max_count'];
+    if ( max_count !== undefined) {
+        if (!uintRegex.test(max_count)) {
+            throw Error('invalid value for max_count: ' + max_count);
         }
 
-        let count = parseInt(args['count']);
-        if (limit > count) {
-            limit = count;
+        max_count = parseInt(max_count);
+        if (limit > max_count) {
+            limit = max_count;
         }
-    }
-    return ' LIMIT ' + limit;
-}
-
-
-async function retrieveAccountHistory(args) {
-    if (args['account'] === undefined) {
-        return Promise.reject(new Error('missing account argument'));
-    }
-
-    if (!nameRegex.test(args['account'])) {
-        return Promise.reject(new Error('invalid value in account: ' + args['account']));
     }
 
     let query =
-        'SELECT trace FROM (SELECT DISTINCT seq FROM RECEIPTS ' +
-        'WHERE account_name=\'' + args['account'] + '\'' +
-        await whereClause(args) +
-        ' ORDER by seq' + limitClause(args) +
+        'SELECT pos, trace FROM (SELECT DISTINCT seq, min(recv_sequence) AS pos FROM RECEIPTS ' +
+        'WHERE ' + whereClause +
+        ' GROUP BY seq ORDER by seq LIMIT ' + limit +
         ') as X INNER JOIN TRANSACTIONS ON X.seq = TRANSACTIONS.seq';
 
-    return db.ExecuteQueryAsync(query);
+    return [last_irreversible_block, await db.ExecuteQueryAsync(query)];
 }
 
 
-async function retrieveContractHistory(args) {
-    if (args['contract'] === undefined) {
-        return Promise.reject(new Error('missing contract argument'));
-    }
-
-    if (!nameRegex.test(args['contract'])) {
-        return Promise.reject(new Error('invalid value in contract: ' + args['contract']));
-    }
-
-    let query =
-        'SELECT trace FROM (SELECT DISTINCT seq FROM ACTIONS ' +
-        'WHERE contract=\'' + args['contract'] + '\'' +
-        await whereClause(args);
-
-    if (args['actions'] !== undefined) {
-        query += 'AND action IN (';
-        let actionsList = args['actions'].split(',');
-        actionsList.forEach((item, i) => {
-            if (!nameRegex.test(item)) {
-                return Promise.reject(new Error('invalid value in actions: ' + args['actions']));
-            }
-
-            if (i > 0) {
-                query += ',';
-            }
-
-            query += '\'' + item + '\'';
-        });
-
-        query += ')';
-    }
-
-    query += ' ORDER by seq' + limitClause(args) + ') as X INNER JOIN TRANSACTIONS ON X.seq = TRANSACTIONS.seq';
-
-    return db.ExecuteQueryAsync(query);
-}
 
 
 
@@ -180,26 +137,16 @@ async function retrieveContractHistory(args) {
 // expressjs handlers
 
 controller.get_account_history = async (req, res) => {
-    let traces = await retrieveAccountHistory(req.query);
-    return sendTraces(res, traces, await getLastIrreversibleBlock(req.query));
-}
-
-controller.get_contract_history = async (req, res) => {
-    let traces = await retrieveContractHistory(req.query);
-    return sendTraces(res, traces, await getLastIrreversibleBlock(req.query));
+    let result = await retrieveAccountHistory(req.query);
+    return sendTraces(res, result[1], result[0]);
 }
 
 
 // graphql handlers
 
 controller.graphql_account_history = async (args) => {
-    let traces = await retrieveAccountHistory(args);
-    return formatHistoryData(traces, await getLastIrreversibleBlock(args));
-}
-
-controller.graphql_contract_history = async (args) => {
-    let traces = await retrieveContractHistory(args);
-    return formatHistoryData(traces, await getLastIrreversibleBlock(args));
+    let result = await retrieveAccountHistory(args);
+    return formatHistoryData(result[1], result[0]);
 }
 
 

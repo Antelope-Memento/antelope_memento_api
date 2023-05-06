@@ -72,41 +72,32 @@ If a transaction ID is not found in the database, the result has known=false.
 The call retrieves transaction traces that are relevant to a specified
 account, and it allows narrowing the scope by optional arguments.
 
+The call returns a JSON object with the fields
+`last_irreversible_block` (uint) and `data` (array of objects with
+fields `pos` and `trace`). The array is empty if nothing is found.
+
+Position (pos) is equal to `recv_sequence` number for the account.
+
 Mandatory argument: `account`.
 
 Optional arguments:
 
-* `irreversible` (boolean): if set to true, the result will only contain irreversible transactions.
+* `irreversible` (boolean): if set to true, the result will only
+  contain irreversible transactions.
 
-* `block_num_min` (uint): starting block number. If not specified, the
-  API searches from the earliest available block.
-
-* `block_num_max` (uint): ending block number.
-
-* `block_time_min` (DATETIME), `block_time_max` (DATETIME): starting
-  and ending timestamp in ISO 8601 format in UTC zone
-  (e.g. "2007-04-05T14:30")
-
-* `count` (uint): maximum number of records. The result is also
+* `max_count` (uint): maximum number of records. The result is also
   limited by MAX_RECORD_COUNT configuration setting, so the count
   parameter may reduce the output if desired.
 
-The call returns a JSON object with the fields
-`last_irreversible_block` (uint) and `data` (array of traces). The
-array is empty if nothing is found.
+* `pos` (int): if negative, the resulting traces will start from
+  `recv_sequence` that is this far from the latest sequence number. If
+  positive, the parameter specifies the starting value of
+  `recv_sequence`. If omitted, the request returns up to
+  MAX_RECORD_COUNT last traces for the account.
 
+* `action_filter` (string): if specified, the result will be filtered
+  by the contract and action. Format: `CONTRACT:ACTION`.
 
-### `get_contract_history`
-
-The contract is similar to `/get_account_history`, but it returns all
-traces relevant to a smart contract.
-
-Mandatory argument: `contract`.
-
-Optional arguments same as in `/get_account_history`, plus:
-
-* `actions` (string): comma-separated list of contract actions. If
-  defined, the output will be filtered accordingly.
 
 
 
