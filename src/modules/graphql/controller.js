@@ -41,7 +41,7 @@ const sdlSchema = `
   },
 
   type Query {
-    account_history(account: String!, irreversible: Boolean, max_count: Int, pos: Int,
+    account_history(account: String!, irreversible: Boolean, max_count: Int, pos: String,
       action_filter: String): history_data,
 
     transaction(trx_id: String!): transaction_status

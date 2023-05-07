@@ -76,7 +76,12 @@ The call returns a JSON object with the fields
 `last_irreversible_block` (uint) and `data` (array of objects with
 fields `pos` and `trace`). The array is empty if nothing is found.
 
-Position (pos) is equal to `recv_sequence` number for the account.
+Position (pos) is equal to `recv_sequence` number for the
+account. Multiple positions for the same account may correspond to the
+same transaction. The `get_account_history` picks the minimum
+`recv_sequence` value within each transaction and returns it as `pos`
+parameter. But `pos` in the first returned transaction may be higher
+than the minimum.
 
 Mandatory argument: `account`.
 
@@ -128,20 +133,10 @@ The following queries are supported:
 * `account_history`: returns `history_data`
   - `account: String!`
   - `irreversible: Boolean`
-  - `block_num_min: Int`
-  - `block_num_max: Int`
-  - `block_time_min: String`
-  - `block_time_max: String`
-  - `count: Int`
+  - `max_count: Int`
+  - `pos: String` (long integer as string)
+  - `action_filter: String`
 
-* `contract_history`: returns `history_data`
-  - `contract: String!`
-  - `irreversible: Boolean`
-  - `block_num_min: Int`
-  - `block_num_max: Int`
-  - `block_time_min: String`
-  - `block_time_max: String`
-  - `count: Int`
 
 * `transaction`: returns transaction_status
   - `trx_id: String!`
