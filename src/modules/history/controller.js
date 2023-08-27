@@ -87,7 +87,7 @@ async function retrieveAccountHistory(args) {
     }
 
     if ( pos < 0 ) {
-        pos = await GetMaxRecvSequence(account) + pos;
+        pos = await GetMaxRecvSequence(account) + pos + 1;
     }
 
     let whereClause = 'receiver=\'' + account + '\' AND recv_sequence >= ' + pos;
