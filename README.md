@@ -105,6 +105,16 @@ Optional arguments:
 
 
 
+### `/get_pos`
+
+The call returns the minimum position number (`recv_sequence` number)
+for the first transaction not earlier than the specified timestamp. It
+returns `null` if there are no transactions at or after the specified
+timestamp.
+
+Mandatory argument: `account`. `timestamp`.
+
+
 
 ## GraphQL API
 
@@ -136,6 +146,10 @@ The following queries are supported:
   - `max_count: Int`
   - `pos: String` (long integer as string)
   - `action_filter: String`
+
+* `get_pos`: returns String
+  - `account: String!`
+  - `timestamp: String!`
 
 
 * `transaction`: returns transaction_status

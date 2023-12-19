@@ -130,8 +130,46 @@ async function retrieveAccountHistory(args) {
 
 
 
+async function retrievePos(args) {
+    let account = args['account'];
+    if ( account === undefined) {
+        return Promise.reject(new Error('missing account argument'));
+    }
 
+    if (!nameRegex.test(account)) {
+        return Promise.reject(new Error('invalid value in account: ' + args['account']));
+    }
 
+    let timestamp = args['timestamp'];
+    if ( timestamp === undefined) {
+        return Promise.reject(new Error('missing timestamp argument'));
+    }
+
+    const ts = Date.parse(timestamp);
+    if( Number.isNaN(ts) ) {
+        return Promise.reject(new Error('cannot parse the timestamp: ' + timestamp));
+    }
+
+    let query = 'SELECT MIN(recv_sequence) as pos FROM RECEIPTS WHERE receiver=\'' + account + '\' AND block_time = ' +
+        '(SELECT min(block_time) FROM RECEIPTS WHERE receiver=\'' + account + '\' AND block_time >= ';
+    if( db.is_mysql ) {
+        query += 'FROM_UNIXTIME(' + ts/1000 + '))';
+    }
+    else {
+        query += 'to_timestamp(' + ts/1000 + '))';
+    }
+
+    return new Promise((resolve, reject) => {
+        db.ExecuteQuery(query,
+                        (data) => {
+                            if (data.length > 0) {
+                                resolve(parseInt(data[0].pos));
+                            } else {
+                                resolve(Number.NaN);
+                            }
+                        });
+    });
+}
 
 
 // expressjs handlers
@@ -141,12 +179,22 @@ controller.get_account_history = async (req, res) => {
     return sendTraces(res, result[1], result[0]);
 }
 
+controller.get_pos = async (req, res) => {
+    let pos = await retrievePos(req.query);
+    res.status(constant.HTTP_200_CODE);
+    res.send(pos);
+}
+
 
 // graphql handlers
 
 controller.graphql_account_history = async (args) => {
     let result = await retrieveAccountHistory(args);
     return formatHistoryData(result[1], result[0]);
+}
+
+controller.graphql_get_pos = async (args) => {
+    return await retrievePos(args);
 }
 
 

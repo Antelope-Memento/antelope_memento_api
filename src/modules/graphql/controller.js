@@ -44,6 +44,8 @@ const sdlSchema = `
     account_history(account: String!, irreversible: Boolean, max_count: Int, pos: String,
       action_filter: String): history_data,
 
+    get_pos(account: String!, timestamp: String!): String,
+
     transaction(trx_id: String!): transaction_status
   }`;
 
@@ -52,6 +54,15 @@ const resolvers = {
     async account_history(obj, args, context, info) {
         try {
             return await historyController.graphql_account_history(args);
+        } catch (err) {
+            console.error(err.message);
+            throw err;
+        }
+    },
+
+    async get_pos(obj, args, context, info) {
+        try {
+            return await historyController.graphql_get_pos(args);
         } catch (err) {
             console.error(err.message);
             throw err;
