@@ -1,23 +1,14 @@
-const {
-    createHandler
-} = require('graphql-http/lib/use/express');
-const {
-    buildSchema
-} = require('graphql');
-const {
-    makeExecutableSchema
-} = require('@graphql-tools/schema');
+const { createHandler } = require('graphql-http/lib/use/express');
+const { buildSchema } = require('graphql');
+const { makeExecutableSchema } = require('@graphql-tools/schema');
 
-const txnController = require("../transactionStatus/controller.js");
-const historyController = require("../history/controller.js");
+const txnController = require('../transactionStatus/controller.js');
+const historyController = require('../history/controller.js');
 
-const {
-    GraphQLJSON,
-    GraphQLJSONObject
-} = require('graphql-type-json');
-const constant = require("../../constants/config");
+const { GraphQLJSON, GraphQLJSONObject } = require('graphql-type-json');
+const constant = require('../../constants/config');
 
-var graphql = function() {};
+var graphql = function () {};
 
 // Construct a schema, using GraphQL schema language
 const sdlSchema = `
@@ -82,10 +73,10 @@ const resolvers = {
 const schema = makeExecutableSchema({
     typeDefs: sdlSchema,
     resolvers: {
-        Query: resolvers
-    }
+        Query: resolvers,
+    },
 });
 
 module.exports = createHandler({
-    schema
+    schema,
 });

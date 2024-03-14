@@ -1,18 +1,25 @@
-const express = require("express");
-const cors = require("cors");
-const morgan = require("morgan");
+const express = require('express');
+const cors = require('cors');
+const morgan = require('morgan');
 const cluster = require('cluster');
 
-require("dotenv").config();
+require('dotenv').config();
 
-const router = require("./routes/routes");
-const dbUtility = require("./utilities/db");
-const constant = require("./constants/config");
+const router = require('./routes/routes');
+const dbUtility = require('./utilities/db');
+const constant = require('./constants/config');
 
 const app = express();
 
-const required_options = ['SERVER_BIND_IP', 'SERVER_BIND_PORT', 'DATABASE_SELECT', 'HEALTHY_SYNC_TIME_DIFF',
-    'API_PATH_PREFIX', 'CPU_CORES', 'MAX_RECORD_COUNT', 'CONNECTION_POOL'
+const required_options = [
+    'SERVER_BIND_IP',
+    'SERVER_BIND_PORT',
+    'DATABASE_SELECT',
+    'HEALTHY_SYNC_TIME_DIFF',
+    'API_PATH_PREFIX',
+    'CPU_CORES',
+    'MAX_RECORD_COUNT',
+    'CONNECTION_POOL',
 ];
 
 required_options.forEach((item, i) => {
@@ -22,17 +29,23 @@ required_options.forEach((item, i) => {
     }
 });
 
-app.use(cors({
-    origin: "*",
-}));
+app.use(
+    cors({
+        origin: '*',
+    })
+);
 
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms :remote-addr'));
+app.use(
+    morgan(
+        ':method :url :status :res[content-length] - :response-time ms :remote-addr'
+    )
+);
 app.use(express.json());
 
 app.use(`/${process.env.API_PATH_PREFIX}`, router);
 
 app.get(`/${process.env.API_PATH_PREFIX}`, (req, res) => {
-    res.send("Memento API");
+    res.send('Memento API');
 });
 
 dbUtility.CreateConnectionPool();
@@ -76,21 +89,20 @@ function createClusteredServer(ip, port, clusterSize) {
     }
 }
 
-
-var gracefulExit = function() {
+var gracefulExit = function () {
     console.log('Close DB connection');
     dbUtility.CloseConnection();
     process.exit(0);
-}
+};
 
 // If the Node process ends, close the DB connection
 process.on('SIGINT', gracefulExit).on('SIGTERM', gracefulExit);
 
-process.on('uncaughtException', function(error) {
+process.on('uncaughtException', function (error) {
     console.log('uncaughtException ' + error);
 });
 
-process.on('unhandledRejection', function(reason, p) {
+process.on('unhandledRejection', function (reason, p) {
     console.log('unhandledRejection ' + reason);
 });
 
