@@ -22,4 +22,19 @@ module.exports = constant = {
 
     MYSQL_DB: 'MYSQL',
     POSTGRES_DB: 'POSTGRES',
+
+    EVENT: {
+        CONNECTION: 'connection',
+        DISCONNECT: 'disconnect',
+        ERROR: 'error',
+
+        TRANSACTIONS: 'transactions',
+    },
+    EVENT_ERRORS: {
+        INVALID_ARGS: 'Invalid arguments',
+        INVALID_ACCOUNT: 'Invalid account',
+        INVALID_CONTRACT: 'Invalid contract',
+        INVALID_ACTION: 'Invalid action',
+        INVALID_START_FROM: 'Invalid start_from',
+    },
 };

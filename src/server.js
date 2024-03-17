@@ -10,6 +10,7 @@ require('dotenv').config();
 const router = require('./routes/routes');
 const dbUtility = require('./utilities/db');
 const constant = require('./constants/config');
+const { onConnection } = require('./services/webSocket');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,7 +21,7 @@ const io = new Server(server, {
     },
 });
 
-io.on('connection', () => {});
+io.on('connection', onConnection);
 
 const required_options = [
     'SERVER_BIND_IP',
