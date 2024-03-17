@@ -1,7 +1,9 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const morgan = require('morgan');
 const cluster = require('cluster');
+const { Server } = require('socket.io');
 
 require('dotenv').config();
 
@@ -10,6 +12,15 @@ const dbUtility = require('./utilities/db');
 const constant = require('./constants/config');
 
 const app = express();
+const server = http.createServer(app);
+
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+    },
+});
+
+io.on('connection', () => {});
 
 const required_options = [
     'SERVER_BIND_IP',
@@ -77,13 +88,13 @@ function createClusteredServer(ip, port, clusterSize) {
                 console.log('Starting a new worker ');
             });
         } else {
-            app.listen(port, ip, () => {
+            server.listen(port, ip, () => {
                 console.log(`listening on port no ${port}`);
             });
             console.log(`Worker ${process.pid} started`);
         }
     } else {
-        app.listen(port, ip, () => {
+        server.listen(port, ip, () => {
             console.log(`listening on port no ${port}`);
         });
     }
