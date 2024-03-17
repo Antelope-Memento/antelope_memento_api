@@ -7,8 +7,6 @@ const {
     timestampToQuery,
 } = require('../../utilities/helpers');
 
-
-
 /**
  * @type {Object.<string, Object.<string, number>>} - The interval object for each socket connection
  */
@@ -144,7 +142,7 @@ function getQuery({ account, contract, action, startFrom, readUntil }) {
             AND block_num <= "${readUntil}"
             GROUP BY seq
             ORDER BY seq DESC
-            LIMIT 1
+            LIMIT ${process.env.MAX_RECORD_COUNT ?? 1000}
         ) AS RECEIPTS
         INNER JOIN TRANSACTIONS ON RECEIPTS.seq = TRANSACTIONS.seq
     `;
