@@ -11,26 +11,26 @@ const {
  * @type {Object.<string, Object.<string, number>>} - The interval object for each socket connection
  */
 const interval = {
-    [constant.EVENT.TRANSACTIONS]: {},
+    [constant.EVENT.TRANSACTIONS_HISTORY]: {},
 };
 
-const transactionsEmitInterval = 3000; // Time in milliseconds to emit transactions
+const transactionsEmitInterval = 3000; // Time in milliseconds to emit transactions-history event
 
 /**
  * @param {Socket} socket - The socket that emitted the event
  */
 function onConnection(socket) {
-    socket.on(constant.EVENT.TRANSACTIONS, (args) =>
-        onTransactions(socket, args)
-    );
+    socket.on(constant.EVENT.TRANSACTIONS_HISTORY, (args) => {
+        onTransactionsHistory(socket, args);
+    });
     socket.on(constant.EVENT.DISCONNECT, () => {
-        clearInterval(interval[constant.EVENT.TRANSACTIONS][socket.id]);
-        delete interval[constant.EVENT.TRANSACTIONS][socket.id];
+        clearInterval(interval[constant.EVENT.TRANSACTIONS_HISTORY][socket.id]);
+        delete interval[constant.EVENT.TRANSACTIONS_HISTORY][socket.id];
     });
 }
 
 /**
- * Event handler for 'transactions' event.
+ * Event handler for 'transactions-history' event.
  * @param {Socket} socket - The socket that emitted the event
  * @param {Object} args - The arguments object
  * @param {string} args.account - Notified account name
@@ -38,7 +38,7 @@ function onConnection(socket) {
  * @param {string} args.action - Notified action name
  * @param {string | number} args.start_from - Start reading on block or on a specific date. 0=disabled means it will read starting from HEAD block.
  */
-async function onTransactions(socket, args) {
+async function onTransactionsHistory(socket, args) {
     const { valid, message } = validateArgs(args);
     if (!valid) {
         socket.emit(
@@ -48,23 +48,26 @@ async function onTransactions(socket, args) {
         return;
     }
 
-    async function emitTransactions() {
+    async function emitTransactionsHistory() {
         const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
-        const transactions = await db.ExecuteQueryAsync(
+        const transactionsHistory = await db.ExecuteQueryAsync(
             getQuery({ ...args, readUntil: lastIrreversibleBlock })
         );
-
-        socket.emit(constant.EVENT.TRANSACTIONS, parseTraces(transactions));
+        console.log('sending transactions-history event to client');
+        socket.emit(
+            constant.EVENT.TRANSACTIONS_HISTORY,
+            parseTraces(transactionsHistory)
+        );
     }
 
-    interval[constant.EVENT.TRANSACTIONS][socket.id] = setInterval(
-        emitTransactions,
+    interval[constant.EVENT.TRANSACTIONS_HISTORY][socket.id] = setInterval(
+        emitTransactionsHistory,
         transactionsEmitInterval
     );
 }
 
 /**
- * Check if the arguments passed to the transactions event are valid
+ * Check if the arguments passed to the transactions-history event are valid
  * @param {Object} args - The arguments object
  * @param {string} args.account - Notified account name
  * @param {string} args.contract - Notified contract name

@@ -28,7 +28,7 @@ module.exports = constant = {
         DISCONNECT: 'disconnect',
         ERROR: 'error',
 
-        TRANSACTIONS: 'transactions',
+        TRANSACTIONS_HISTORY: 'transactions-history',
     },
     EVENT_ERRORS: {
         INVALID_ARGS: 'Invalid arguments',
