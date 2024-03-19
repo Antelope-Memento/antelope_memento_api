@@ -150,6 +150,28 @@ The following queries are supported:
 -   `transaction`: returns transaction_status
     -   `trx_id: String!`
 
+## Web Sockets
+
+The API supports Web Sockets for real-time updates. We use socket.io for the Web Socket interface. For now, the client can only subscribe to the `transactions_history` event, which is emitted every 0.5 second with the latest transactions data based on the filters provided.
+
+Example of a client-side javascript code:
+
+```javascript
+const socket = io('https://memento.eu.eosamsterdam.net/wax');
+
+socket.emit('transactions_history', {
+    accounts: ['account1', 'account2'], // array of account names, required
+    start_block: 100000, // start reading from the block_num, optional
+    irreversible: true, // only irreversible transactions, optional
+});
+
+socket.on('transactions_history', (data) => {
+    console.log(data);
+});
+```
+
+The `transactions_history` event returns an array of transactions, each transaction is an object with the following fields: `block_num`, `block_time`, `receiver`, `contract`, `action`, `trace` (the full transaction trace).
+
 ## Installation
 
 ```
@@ -178,6 +200,9 @@ HEALTHY_SYNC_TIME_DIFF = 15000
 API_PATH_PREFIX = wax
 CPU_CORES = 4
 MAX_RECORD_COUNT = 100
+MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT = 1000
+MAX_WS_REVERSIBLE_TRANSACTIONS_COUNT = 100
+
 EOT
 
 systemctl enable memento_api@wax
@@ -198,6 +223,9 @@ HEALTHY_SYNC_TIME_DIFF = 15000
 API_PATH_PREFIX = waxpg
 CPU_CORES = 4
 MAX_RECORD_COUNT = 100
+MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT = 1000
+MAX_WS_REVERSIBLE_TRANSACTIONS_COUNT = 100
+
 EOT
 
 systemctl enable memento_api@waxpg
@@ -230,6 +258,8 @@ API_PATH_PREFIX = wax           // API path prefix wax, eos, tlos
 CPU_CORES = 2   // number of cpu cores, value should not exceed max number of cores available in the system
 
 MAX_RECORD_COUNT = 10  // maximum number of records that can be returned in a single request
+MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT = 1000 // maximum number of irreversible transactions which can be emitted from websocket
+MAX_WS_REVERSIBLE_TRANSACTIONS_COUNT = 100 // maximum number of reversible transactions which can be emitted from websocket
 
 ```
 
