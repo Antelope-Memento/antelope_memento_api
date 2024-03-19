@@ -1,13 +1,4 @@
 /**
- * Check if the given value is an array and is not empty
- * @param {Array} array
- * @returns {boolean}
- */
-function isNotEmptyArray(array) {
-    return Array.isArray(array) && array.length > 0;
-}
-
-/**
  * Check if the given object has all the properties
  * @param {Object} obj
  * @param {Array} properties
@@ -28,6 +19,15 @@ function isAccount(account) {
     }
     const nameRegex = new RegExp(/^[a-z1-5.]{1,13}$/);
     return nameRegex.test(account);
+}
+
+/**
+ * Check if the given value is an array and is not empty
+ * @param {Array} array
+ * @returns {boolean}
+ */
+function isNotEmptyArray(array) {
+    return Array.isArray(array) && array.length > 0;
 }
 
 /**
@@ -72,9 +72,10 @@ function timestampToQuery(timestamp, isMysql) {
 }
 
 module.exports = {
-    isNotEmptyArrayOfAccounts,
     hasProperties,
     isAccount,
+    isNotEmptyArray,
+    isNotEmptyArrayOfAccounts,
     isDate,
     isNumber,
     timestampToQuery,

@@ -1,7 +1,7 @@
 const constant = require('../../constants/config');
 const {
     onTransactionsHistory,
-    interval,
+    state: transactionsHistoryState,
 } = require('./transactionsHistory/index');
 
 /**
@@ -12,8 +12,10 @@ function onConnection(socket) {
         onTransactionsHistory(socket, args);
     });
     socket.on(constant.EVENT.DISCONNECT, () => {
-        clearInterval(interval[socket.id]);
-        delete interval[socket.id];
+        if (transactionsHistoryState[socket.id]) {
+            clearInterval(transactionsHistoryState[socket.id].intervalId);
+            delete transactionsHistoryState[socket.id];
+        }
     });
 }
 

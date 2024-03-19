@@ -2,6 +2,7 @@ const db = require('../../../utilities/db');
 const constant = require('../../../constants/config');
 const {
     isNumber,
+    isNotEmptyArray,
     isNotEmptyArrayOfAccounts,
 } = require('../../../utilities/helpers');
 
@@ -11,11 +12,11 @@ const MAX_WS_REVERSIBLE_TRANSACTIONS_COUNT =
     process.env.MAX_REVERSIBLE_TRANSACTIONS_COUNT ?? 100;
 
 /**
- * @type {Object.<string, NodeJS.Timeout>} - The interval object to store the intervals for each socket
+ * @type {Object.<string, { intervalId: NodeJS.Timeout, lastTransactionBlockNum: number }>} - To store the intervals and last transactions for each socket
  */
-const interval = {};
+const state = {};
 
-const intervalTime = 500; // Time in milliseconds to emit transactions_history event
+const intervalTime = 5000; // Time in milliseconds to emit transactions_history event
 
 /**
  * Event handler for 'transactions_history' event.
@@ -26,6 +27,13 @@ const intervalTime = 500; // Time in milliseconds to emit transactions_history e
  * @param {boolean?} args.irreversible
  */
 async function onTransactionsHistory(socket, args) {
+    if (!state[socket.id]) {
+        state[socket.id] = {
+            intervalId: null,
+            lastTransactionBlockNum: 0,
+        };
+    }
+
     const { valid, message } = validateArgs(args);
     if (!valid) {
         socket.emit(
@@ -38,21 +46,32 @@ async function onTransactionsHistory(socket, args) {
     const { accounts, start_block, irreversible } = args;
 
     async function emitTransactionsHistory() {
-        const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
         const transactionsHistory = await db.ExecuteQueryAsync(
             getIrreversibleTransactionsQuery({
                 accounts,
-                start_block,
-                readUntil: lastIrreversibleBlock,
+                fromBlock: Math.max(
+                    start_block ?? (await db.GetIrreversibleBlockNumber()),
+                    state[socket.id].lastTransactionBlockNum
+                ),
+                toBlock: lastIrreversibleBlock,
             })
         );
+
+        if (isNotEmptyArray(transactionsHistory)) {
+            state[socket.id].lastTransactionBlockNum =
+                transactionsHistory[transactionsHistory.length - 1].block_num;
+        }
+
         socket.emit(
             constant.EVENT.TRANSACTIONS_HISTORY,
             parseTraces(transactionsHistory)
         );
     }
 
-    interval[socket.id] = setInterval(emitTransactionsHistory, intervalTime);
+    state[socket.id].intervalId = setInterval(
+        emitTransactionsHistory,
+        intervalTime
+    );
 }
 
 /**
@@ -101,6 +120,7 @@ function validateArgs(args) {
 function parseTraces(transactions) {
     return transactions.map(({ trace, ...tx }) => ({
         ...tx,
+        type: 'trace',
         trace: JSON.parse(trace),
     }));
 }
@@ -109,45 +129,28 @@ function parseTraces(transactions) {
  * Get the query to fetch the transactions
  * @param {Object} args
  * @param {string[]} args.accounts
- * @param {number?} args.start_block
- * @param {number} args.readUntil
+ * @param {number?} args.fromBlock
+ * @param {number} args.toBlock
  * @returns {String}
  */
-function getIrreversibleTransactionsQuery({
-    accounts,
-    start_block,
-    readUntil,
-}) {
-    // return `
-    //     SELECT trace, contract, action, receiver, block_num, block_time
-    //     FROM (
-    //         SELECT DISTINCT seq, contract, action, receiver
-    //         FROM RECEIPTS
-    //         WHERE receiver IN (${accounts.map((account) => `'${account}'`).join()})
-    //         AND block_num >= "${start_block}"
-    //         AND block_num <= "${readUntil}"
-    //         LIMIT ${MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT}
-    //     ) AS RECEIPTS
-    //     INNER JOIN TRANSACTIONS ON RECEIPTS.seq = TRANSACTIONS.seq
-    // `;
-    const receivers = accounts.map((account) => `'${account}'`).join();
-    return `
-        select block_num, trace
-        from TRANSACTIONS
-        join (
-            select distinct seq
-            from RECEIPTS
-            where receiver in (${receivers})
-            and block_num >= "${start_block}"
-            and block_num < "${readUntil}"
-        ) R
-        on TRANSACTIONS.seq=R.seq
-        order by TRANSACTIONS.seq
-        limit ${MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT}
+function getIrreversibleTransactionsQuery({ accounts, fromBlock, toBlock }) {
+    const query = `
+        SELECT block_num, trace
+        FROM (
+            SELECT DISTINCT seq
+            FROM RECEIPTS
+            WHERE receiver IN (${accounts.map((account) => `'${account}'`).join()})
+            AND block_num >= "${fromBlock}"
+            AND block_num <= "${toBlock}"
+            LIMIT ${MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT}
+        ) AS R
+        INNER JOIN TRANSACTIONS ON R.seq = TRANSACTIONS.seq
     `;
+
+    return query;
 }
 
 module.exports = {
     onTransactionsHistory,
-    interval,
+    state,
 };
