@@ -46,11 +46,12 @@ async function onTransactionsHistory(socket, args) {
     const { accounts, start_block, irreversible } = args;
 
     async function emitTransactionsHistory() {
+        const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
         const transactionsHistory = await db.ExecuteQueryAsync(
             getIrreversibleTransactionsQuery({
                 accounts,
                 fromBlock: Math.max(
-                    start_block ?? (await db.GetIrreversibleBlockNumber()),
+                    start_block ?? lastIrreversibleBlock,
                     state[socket.id].lastTransactionBlockNum
                 ),
                 toBlock: lastIrreversibleBlock,
@@ -64,7 +65,7 @@ async function onTransactionsHistory(socket, args) {
 
         socket.emit(
             constant.EVENT.TRANSACTIONS_HISTORY,
-            parseTraces(transactionsHistory)
+            formatTransactions(transactionsHistory)
         );
     }
 
@@ -117,11 +118,11 @@ function validateArgs(args) {
  * @param {Array} transactions - The transactions array
  * @returns {Array}
  * */
-function parseTraces(transactions) {
+function formatTransactions(transactions) {
     return transactions.map(({ trace, ...tx }) => ({
         ...tx,
         type: 'trace',
-        trace: JSON.parse(trace),
+        data: JSON.parse(trace),
     }));
 }
 
