@@ -17,12 +17,26 @@ function hasProperties(obj, properties) {
     return properties.every((property) => obj.hasOwnProperty(property));
 }
 
-function isName(account) {
+/**
+ * Check if a string is a valid account name
+ * @param {string} account
+ * @returns {boolean}
+ */
+function isAccount(account) {
     if (typeof account !== 'string') {
         return false;
     }
     const nameRegex = new RegExp(/^[a-z1-5.]{1,13}$/);
     return nameRegex.test(account);
+}
+
+/**
+ * Check if an array is not empty and contains only valid account names
+ * @param {string[]} accounts
+ * @returns {boolean}
+ */
+function isNotEmptyArrayOfAccounts(accounts) {
+    return isNotEmptyArray(accounts) && accounts.every(isAccount);
 }
 
 /**
@@ -58,9 +72,9 @@ function timestampToQuery(timestamp, isMysql) {
 }
 
 module.exports = {
-    isNotEmptyArray,
+    isNotEmptyArrayOfAccounts,
     hasProperties,
-    isName,
+    isAccount,
     isDate,
     isNumber,
     timestampToQuery,

@@ -28,13 +28,12 @@ module.exports = constant = {
         DISCONNECT: 'disconnect',
         ERROR: 'error',
 
-        TRANSACTIONS_HISTORY: 'transactions-history',
+        TRANSACTIONS_HISTORY: 'transactions_history',
     },
     EVENT_ERRORS: {
         INVALID_ARGS: 'Invalid arguments',
-        INVALID_ACCOUNT: 'Invalid account',
-        INVALID_CONTRACT: 'Invalid contract',
-        INVALID_ACTION: 'Invalid action',
-        INVALID_START_FROM: 'Invalid start_from',
+        INVALID_ACCOUNTS: 'Invalid accounts',
+        INVALID_START_BLOCK: 'Invalid start_block',
+        INVALID_IRREVERSIBLE: 'Invalid irreversible',
     },
 };

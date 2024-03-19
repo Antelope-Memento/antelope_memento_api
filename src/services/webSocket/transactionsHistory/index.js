@@ -1,27 +1,29 @@
 const db = require('../../../utilities/db');
 const constant = require('../../../constants/config');
 const {
-    isName,
     isNumber,
-    isDate,
-    timestampToQuery,
+    isNotEmptyArrayOfAccounts,
 } = require('../../../utilities/helpers');
+
+const MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT =
+    process.env.MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT ?? 1000;
+const MAX_WS_REVERSIBLE_TRANSACTIONS_COUNT =
+    process.env.MAX_REVERSIBLE_TRANSACTIONS_COUNT ?? 100;
 
 /**
  * @type {Object.<string, NodeJS.Timeout>} - The interval object to store the intervals for each socket
  */
 const interval = {};
 
-const intervalTime = 3000; // Time in milliseconds to emit transactions-history event
+const intervalTime = 500; // Time in milliseconds to emit transactions_history event
 
 /**
- * Event handler for 'transactions-history' event.
- * @param {Socket} socket - The socket that emitted the event
- * @param {Object} args - The arguments object
- * @param {string} args.account - Notified account name
- * @param {string} args.contract - Notified contract name
- * @param {string} args.action - Notified action name
- * @param {string | number} args.start_from - Start reading on block or on a specific date. 0=disabled means it will read starting from HEAD block.
+ * Event handler for 'transactions_history' event.
+ * @param {Socket} socket
+ * @param {Object} args
+ * @param {string[]} args.accounts
+ * @param {number?} args.start_block
+ * @param {boolean?} args.irreversible
  */
 async function onTransactionsHistory(socket, args) {
     const { valid, message } = validateArgs(args);
@@ -33,10 +35,16 @@ async function onTransactionsHistory(socket, args) {
         return;
     }
 
+    const { accounts, start_block, irreversible } = args;
+
     async function emitTransactionsHistory() {
         const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
         const transactionsHistory = await db.ExecuteQueryAsync(
-            getQuery({ ...args, readUntil: lastIrreversibleBlock })
+            getIrreversibleTransactionsQuery({
+                accounts,
+                start_block,
+                readUntil: lastIrreversibleBlock,
+            })
         );
         socket.emit(
             constant.EVENT.TRANSACTIONS_HISTORY,
@@ -48,16 +56,15 @@ async function onTransactionsHistory(socket, args) {
 }
 
 /**
- * Check if the arguments passed to the transactions-history event are valid
- * @param {Object} args - The arguments object
- * @param {string} args.account - Notified account name
- * @param {string} args.contract - Notified contract name
- * @param {string} args.action - Notified action name
- * @param {string | number} args.start_from - Start reading on block or on a specific date. 0=disabled means it will read starting from HEAD block.
- * @returns {{valid: boolean, message?: string | undefined}}
+ * Check if the arguments passed to the transactions_history event are valid
+ * @param {Object} args
+ * @param {string[]} args.accounts
+ * @param {number?} args.start_block
+ * @param {boolean?} args.irreversible
+ * @returns {{valid: boolean, message: string} | {valid: boolean}}
  * */
 function validateArgs(args) {
-    const { account, contract, action, start_from } = args;
+    const { accounts, start_block, irreversible } = args;
 
     switch (true) {
         case typeof args !== 'object':
@@ -65,26 +72,20 @@ function validateArgs(args) {
                 valid: false,
                 message: constant.EVENT_ERRORS.INVALID_ARGS,
             };
-
-        case !isName(account):
+        case !isNotEmptyArrayOfAccounts(accounts):
             return {
                 valid: false,
-                message: constant.EVENT_ERRORS.INVALID_ACCOUNT,
+                message: constant.EVENT_ERRORS.INVALID_ACCOUNTS,
             };
-        case !isName(contract):
+        case start_block && !isNumber(start_block):
             return {
                 valid: false,
-                message: constant.EVENT_ERRORS.INVALID_CONTRACT,
+                message: constant.EVENT_ERRORS.INVALID_START_BLOCK,
             };
-        case !isName(action):
+        case irreversible && typeof irreversible !== 'boolean':
             return {
                 valid: false,
-                message: constant.EVENT_ERRORS.INVALID_ACTION,
-            };
-        case !isNumber(start_from) && !isDate(start_from):
-            return {
-                valid: false,
-                message: constant.EVENT_ERRORS.INVALID_START_FROM,
+                message: constant.EVENT_ERRORS.INVALID_IRREVERSIBLE,
             };
         default:
             return {
@@ -106,30 +107,43 @@ function parseTraces(transactions) {
 
 /**
  * Get the query to fetch the transactions
- * @param {Object} args - The arguments object
- * @param {string} args.account - Notified account name
- * @param {string} args.contract - Notified contract name
- * @param {string} args.action - Notified action name
- * @param {string | number} args.start_from - Start reading on block or on a specific date. 0=disabled means it will read starting from HEAD block.
- * @param {number} args.read_until - Read until block number
+ * @param {Object} args
+ * @param {string[]} args.accounts
+ * @param {number?} args.start_block
+ * @param {number} args.readUntil
  * @returns {String}
  */
-function getQuery({ account, contract, action, startFrom, readUntil }) {
+function getIrreversibleTransactionsQuery({
+    accounts,
+    start_block,
+    readUntil,
+}) {
+    // return `
+    //     SELECT trace, contract, action, receiver, block_num, block_time
+    //     FROM (
+    //         SELECT DISTINCT seq, contract, action, receiver
+    //         FROM RECEIPTS
+    //         WHERE receiver IN (${accounts.map((account) => `'${account}'`).join()})
+    //         AND block_num >= "${start_block}"
+    //         AND block_num <= "${readUntil}"
+    //         LIMIT ${MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT}
+    //     ) AS RECEIPTS
+    //     INNER JOIN TRANSACTIONS ON RECEIPTS.seq = TRANSACTIONS.seq
+    // `;
+    const receivers = accounts.map((account) => `'${account}'`).join();
     return `
-        SELECT trace, contract, action, receiver, block_num, block_time
-        FROM (
-            SELECT DISTINCT seq, contract, action, receiver
-            FROM RECEIPTS
-            WHERE receiver = "${account}"
-            AND contract = "${contract}"
-            AND action = "${action}"
-            ${`AND ${isDate(startFrom) ? `block_time >= ${timestampToQuery(startFrom, db.is_mysql)}` : `block_num >= "${startFrom}"`}`}
-            AND block_num <= "${readUntil}"
-            GROUP BY seq
-            ORDER BY seq DESC
-            LIMIT ${process.env.MAX_RECORD_COUNT ?? 1000}
-        ) AS RECEIPTS
-        INNER JOIN TRANSACTIONS ON RECEIPTS.seq = TRANSACTIONS.seq
+        select block_num, trace
+        from TRANSACTIONS
+        join (
+            select distinct seq
+            from RECEIPTS
+            where receiver in (${receivers})
+            and block_num >= "${start_block}"
+            and block_num < "${readUntil}"
+        ) R
+        on TRANSACTIONS.seq=R.seq
+        order by TRANSACTIONS.seq
+        limit ${MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT}
     `;
 }
 
