@@ -277,8 +277,8 @@ function getTransactionsQuery({ accounts, fromBlock, toBlock }) {
             SELECT DISTINCT seq
             FROM RECEIPTS
             WHERE receiver IN (${accounts.map((account) => `'${account}'`).join()})
-            AND block_num >= "${fromBlock}"
-            AND block_num <= "${toBlock}"
+            AND block_num >= '${fromBlock}'
+            AND block_num <= '${toBlock}'
             LIMIT ${MAX_WS_TRANSACTIONS_COUNT}
         ) AS R
         INNER JOIN TRANSACTIONS ON R.seq = TRANSACTIONS.seq
@@ -293,7 +293,7 @@ function getLastEventLogQuery(blockNum) {
     return `
         SELECT MAX(id) 
         FROM EVENT_LOG 
-        where block_num = "${blockNum}"
+        where block_num = '${blockNum}'
     `;
 }
 
@@ -308,8 +308,8 @@ function getLastEventLogsQuery({ fromId, toId }) {
     return `
         SELECT id, block_num, data as trace
         FROM EVENT_LOG
-        WHERE id > "${fromId}"
-        AND id <= "${toId}"
+        WHERE id > '${fromId}'
+        AND id <= '${toId}'
         ORDER BY id DESC
     `;
 }
