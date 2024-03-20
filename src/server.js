@@ -21,7 +21,9 @@ const io = new Server(server, {
     },
 });
 
-io.on(constant.EVENT.CONNECTION, onConnection);
+io.on(constant.EVENT.CONNECTION, (socket) => {
+    onConnection(socket, io);
+});
 
 const required_options = [
     'SERVER_BIND_IP',

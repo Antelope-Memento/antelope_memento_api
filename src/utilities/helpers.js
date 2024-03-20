@@ -71,6 +71,20 @@ function timestampToQuery(timestamp, isMysql) {
         : `to_timestamp('${timestampInMilliseconds}')`;
 }
 
+/**
+ * Check if a string is a valid JSON string
+ * @param {string} str
+ * @returns {boolean}
+ */
+function isJsonString(str) {
+    try {
+        JSON.parse(str);
+    } catch (e) {
+        return false;
+    }
+    return true;
+}
+
 module.exports = {
     hasProperties,
     isAccount,
@@ -78,5 +92,6 @@ module.exports = {
     isNotEmptyArrayOfAccounts,
     isDate,
     isNumber,
+    isJsonString,
     timestampToQuery,
 };
