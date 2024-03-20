@@ -36,7 +36,7 @@ module.exports = constant = {
         INVALID_START_BLOCK: 'Invalid start_block',
         INVALID_IRREVERSIBLE: 'Invalid irreversible',
     },
-    TRANSACTIONS_HISTORY_TYPES: {
+    TRANSACTIONS_HISTORY_TYPE: {
         TRACE: 'trace',
         FORK: 'fork',
     },
