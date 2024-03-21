@@ -120,4 +120,19 @@ dbUtility.GetIrreversibleBlockNumber = async () => {
     });
 };
 
+dbUtility.GetLastSyncedBlockNumber = async () => {
+    return new Promise((resolve, reject) => {
+        dbUtility.ExecuteQuery(
+            'select MAX(block_num) as block_num from SYNC',
+            (data) => {
+                if (data.length > 0) {
+                    resolve(parseInt(data[0].block_num));
+                } else {
+                    reject('SYNC table is empty');
+                }
+            }
+        );
+    });
+};
+
 module.exports = dbUtility;

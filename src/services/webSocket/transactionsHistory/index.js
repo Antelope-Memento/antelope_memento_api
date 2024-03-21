@@ -20,13 +20,12 @@ const EVENT_LOGS_SCAN_INTERVAL_TIME = 500; // Time in milliseconds to scan the E
 
 /**
  * The state of the transactionsHistory service
- * @type {{sockets: {string: {intervalId: number, lastTransactionBlockNum: number, transactionType: 'trace'|'fork'}}, eventLogs: Array<{}>, eventLogsIntervalId: number,lastIrreversibleBlock: number}}
+ * @type {{sockets: {string: {intervalId: number, lastTransactionBlockNum: number, transactionType: 'trace'|'fork' | null}}, eventLogs: Array<{}>, eventLogsIntervalId: number}}
  * */
 const state = {
     sockets: {},
     eventLogs: { data: [], lastEventLogId: 0 },
     eventLogsIntervalId: null,
-    lastIrreversibleBlock: 0,
 };
 
 // setInterval(() => {
@@ -92,7 +91,7 @@ function getSocketStateActions(socketId) {
             state.sockets[socketId] = {
                 intervalId: null,
                 lastTransactionBlockNum: 0,
-                transactionType: TRANSACTIONS_HISTORY_TYPE.TRACE,
+                transactionType: null,
             };
         },
         /**
@@ -164,15 +163,58 @@ async function onTransactionsHistory(socket, args) {
  * @param {number?} args.start_block
  * @param {boolean?} args.irreversible
  * */
-async function emitTransactionsHistory(socket, args) {
-    const { getSocketState } = getSocketStateActions(socket.id);
-    const isTrace =
-        getSocketState()?.transactionType === TRANSACTIONS_HISTORY_TYPE.TRACE;
+async function emitTransactionsHistory(
+    socket,
+    { accounts, start_block, irreversible = false }
+) {
+    const { setSocketState, getSocketState } = getSocketStateActions(socket.id);
+    const { lastTransactionBlockNum, transactionType } = getSocketState();
 
-    if (isTrace) {
-        emitTraceTransactions(socket, args);
-    } else {
-        emitForkTransactions(socket, args);
+    const headBlock = await db.GetLastSyncedBlockNumber();
+
+    const startBlock = Math.max(
+        start_block ?? headBlock,
+        lastTransactionBlockNum
+    );
+
+    const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
+
+    const shouldSwitchToTrace =
+        ((start_block && startBlock < +lastIrreversibleBlock) ||
+            irreversible) &&
+        transactionType !== TRANSACTIONS_HISTORY_TYPE.TRACE;
+
+    if (shouldSwitchToTrace) {
+        setSocketState({
+            transactionType: TRANSACTIONS_HISTORY_TYPE.TRACE,
+        });
+    }
+
+    const shouldSwitchToFork =
+        (lastTransactionBlockNum >= lastIrreversibleBlock || !start_block) &&
+        !irreversible &&
+        transactionType !== TRANSACTIONS_HISTORY_TYPE.FORK;
+
+    if (shouldSwitchToFork) {
+        setSocketState({
+            transactionType: TRANSACTIONS_HISTORY_TYPE.FORK,
+        });
+    }
+
+    if (transactionType === TRANSACTIONS_HISTORY_TYPE.TRACE) {
+        const shouldExecute = lastIrreversibleBlock !== lastTransactionBlockNum;
+
+        if (shouldExecute) {
+            emitTraceTransactions(socket, {
+                accounts,
+                fromBlock: startBlock,
+                toBlock: irreversible ? lastIrreversibleBlock : headBlock,
+            });
+        }
+    }
+
+    if (transactionType === TRANSACTIONS_HISTORY_TYPE.FORK) {
+        emitForkTransactions(socket, { accounts });
     }
 }
 
@@ -181,67 +223,38 @@ async function emitTransactionsHistory(socket, args) {
  * @param {Socket} socket
  * @param {Object} args
  * @param {string[]} args.accounts
- * @param {number?} args.start_block
- * @param {boolean?} args.irreversible
+ * @param {number} args.fromBlock
+ * @param {number} args.toBlock
  * */
 async function emitTraceTransactions(
     socket,
-    { accounts, start_block, irreversible = true }
+    { accounts, fromBlock, toBlock },
+    shouldExecute
 ) {
-    const { setSocketState, getSocketState } = getSocketStateActions(socket.id);
-
-    const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
-    const prevLastIrreversibleBlock = state.lastIrreversibleBlock;
-
-    const shouldSkipEmit = lastIrreversibleBlock === prevLastIrreversibleBlock;
-
-    if (shouldSkipEmit) {
-        return;
-    }
-
-    state.lastIrreversibleBlock = lastIrreversibleBlock;
+    const { setSocketState } = getSocketStateActions(socket.id);
 
     const transactionsHistory = await db.ExecuteQueryAsync(
         getTransactionsQuery({
             accounts,
-            fromBlock: Math.max(
-                start_block ?? lastIrreversibleBlock,
-                getSocketState()?.lastTransactionBlockNum
-            ),
-            toBlock: lastIrreversibleBlock,
+            fromBlock,
+            toBlock,
         })
     );
 
     if (isNotEmptyArray(transactionsHistory)) {
         const lastTransactionBlockNum = transactionsHistory[0].block_num;
-        setSocketState({ lastTransactionBlockNum });
-    }
-
-    const { lastTransactionBlockNum, transactionType } = getSocketState(
-        socket.id
-    );
-
-    const shouldSwitchToFork =
-        !irreversible &&
-        Number(lastTransactionBlockNum) === Number(lastIrreversibleBlock) &&
-        transactionType !== TRANSACTIONS_HISTORY_TYPE.FORK;
-
-    if (shouldSwitchToFork) {
         setSocketState({
-            transactionType: TRANSACTIONS_HISTORY_TYPE.FORK,
+            lastTransactionBlockNum: Number(lastTransactionBlockNum),
         });
-    } else {
-        // if a client is too slow in consuming the stream,
-        // the server should switch from head block back to scanning EVENT_LOG specifically for this client.
-        // @TODO: Implement the logic above
-        socket.emit(
-            EVENT.TRANSACTIONS_HISTORY,
-            formatTransactions(
-                transactionsHistory,
-                TRANSACTIONS_HISTORY_TYPE.TRACE
-            )
-        );
     }
+
+    //     // if a client is too slow in consuming the stream,
+    //     // the server should switch from head block back to scanning EVENT_LOG specifically for this client.
+    //     // @TODO: Implement the logic above
+    socket.emit(
+        EVENT.TRANSACTIONS_HISTORY,
+        formatTransactions(transactionsHistory, TRANSACTIONS_HISTORY_TYPE.TRACE)
+    );
 }
 
 /**
@@ -249,8 +262,6 @@ async function emitTraceTransactions(
  * @param {Socket} socket
  * @param {Object} args
  * @param {string[]} args.accounts
- * @param {number?} args.start_block
- * @param {boolean?} args.irreversible
  * */
 async function emitForkTransactions(socket, { accounts }) {
     // If the scanning delays behind the last irreversible block,
@@ -380,17 +391,6 @@ function getEventLogsQuery({ fromId, toId }) {
         WHERE id > '${fromId}'
         AND id <= '${toId}'
         ORDER BY id DESC
-    `;
-}
-
-/**
- * Get the query to fetch the head block
- * @returns {String}
- */
-function getHeadBlockQuery() {
-    return `
-        SELECT MAX(block_num) as block_num
-        FROM SYNC
     `;
 }
 
