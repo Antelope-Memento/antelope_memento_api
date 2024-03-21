@@ -74,14 +74,16 @@ function manageEventLogsScanning(connectionsCount) {
     state.shouldScanEventLogs = connectionsCount > 0;
 }
 
-// get functions to manage the state for a specific socket connection
-function getSocketStateActions() {
+/**
+ * Get the actions to manage the state for a specific socket connection
+ * @param {string} socketId - The id of the socket connection
+ * */
+function getSocketStateActions(socketId) {
     return {
         /**
          * Initialize the state for a specific socket connection
-         * @param {string} socketId - The id of the socket connection
          * */
-        initializeSocketState: (socketId) => {
+        initializeSocketState: () => {
             state.sockets[socketId] = {
                 intervalId: null,
                 lastTransactionBlockNum: 0,
@@ -90,16 +92,14 @@ function getSocketStateActions() {
         },
         /**
          * Get the state for a specific socket connection
-         * @param {string} socketId - The id of the socket connection
          * @returns {{intervalId: number, lastTransactionBlockNum: number, transactionType: 'trace'|'fork'}}
          * */
-        getSocketState: (socketId) => state.sockets[socketId],
+        getSocketState: () => state.sockets[socketId],
         /**
          * Set the state for a specific socket connection
-         * @param {string} socketId - The id of the socket connection
          * @param {{intervalId?: number, lastTransactionBlockNum?: number, transactionType?: 'trace'|'fork'}} newState
          * */
-        setSocketState: (socketId, newState) => {
+        setSocketState: (newState) => {
             state.sockets[socketId] = {
                 ...state.sockets[socketId],
                 ...newState,
@@ -107,13 +107,14 @@ function getSocketStateActions() {
         },
         /**
          * Clear the state for a specific socket connection
-         * @param {string} socketId - The id of the socket connection
          * */
-        clearSocketState: (socketId) => {
+        clearSocketState: () => {
             if (state.sockets[socketId]) {
                 clearInterval(state.sockets[socketId].intervalId);
+                console.log('before clearing =>', state.sockets);
                 delete state.sockets[socketId];
             }
+            console.log('state.sockets', state.sockets);
         },
     };
 }
@@ -137,15 +138,15 @@ async function onTransactionsHistory(socket, args) {
         return;
     }
     const { initializeSocketState, setSocketState, getSocketState } =
-        getSocketStateActions();
+        getSocketStateActions(socket.id);
 
     // initialize the state for the socket connection (only once per connection)
-    if (!getSocketState(socket.id)) {
-        initializeSocketState(socket.id);
+    if (!getSocketState()) {
+        initializeSocketState();
     }
 
     // send the transactions history to the client every EMIT_INTERVAL_TIME milliseconds
-    setSocketState(socket.id, {
+    setSocketState({
         intervalId: setInterval(() => {
             emitTransactionsHistory(socket, args);
         }, EMIT_INTERVAL_TIME),
@@ -160,11 +161,23 @@ async function onTransactionsHistory(socket, args) {
  * @param {number?} args.start_block
  * @param {boolean?} args.irreversible
  * */
-async function emitTransactionsHistory(
+async function emitTransactionsHistory(socket, args) {
+    const { getSocketState } = getSocketStateActions(socket.id);
+    const isTrace =
+        getSocketState()?.transactionType === TRANSACTIONS_HISTORY_TYPE.TRACE;
+
+    if (isTrace) {
+        emitTrace(socket, args);
+    } else {
+        emitFork(socket, args);
+    }
+}
+
+async function emitTrace(
     socket,
     { accounts, start_block, irreversible = true }
 ) {
-    const { setSocketState, getSocketState } = getSocketStateActions();
+    const { setSocketState, getSocketState } = getSocketStateActions(socket.id);
 
     const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
     const prevLastIrreversibleBlock = state.lastIrreversibleBlock;
@@ -182,7 +195,7 @@ async function emitTransactionsHistory(
             accounts,
             fromBlock: Math.max(
                 start_block ?? lastIrreversibleBlock,
-                getSocketState(socket.id)?.lastTransactionBlockNum
+                getSocketState()?.lastTransactionBlockNum
             ),
             toBlock: lastIrreversibleBlock,
         })
@@ -191,7 +204,7 @@ async function emitTransactionsHistory(
     if (isNotEmptyArray(transactionsHistory)) {
         const lastTransactionBlockNum =
             transactionsHistory[transactionsHistory.length - 1].block_num;
-        setSocketState(socket.id, { lastTransactionBlockNum });
+        setSocketState({ lastTransactionBlockNum });
     }
 
     const { lastTransactionBlockNum, transactionType } = getSocketState(
@@ -209,29 +222,21 @@ async function emitTransactionsHistory(
         });
     }
 
-    const isTrace =
-        getSocketState(socket.id)?.transactionType ===
-        TRANSACTIONS_HISTORY_TYPE.TRACE;
+    socket.emit(
+        EVENT.TRANSACTIONS_HISTORY,
+        formatTransactions(transactionsHistory, TRANSACTIONS_HISTORY_TYPE.TRACE)
+    );
+}
 
-    if (isTrace) {
-        socket.emit(
-            EVENT.TRANSACTIONS_HISTORY,
-            formatTransactions(
-                transactionsHistory,
-                TRANSACTIONS_HISTORY_TYPE.TRACE
-            )
-        );
-    } else {
-        // start receiving data from EVENT_LOG table
-        socket.emit(
-            EVENT.TRANSACTIONS_HISTORY,
-            formatTransactions(
-                state.eventLogs.data,
-                TRANSACTIONS_HISTORY_TYPE.FORK,
-                accounts
-            )
-        );
-    }
+async function emitFork(socket, { accounts }) {
+    socket.emit(
+        EVENT.TRANSACTIONS_HISTORY,
+        formatTransactions(
+            state.eventLogs.data,
+            TRANSACTIONS_HISTORY_TYPE.FORK,
+            accounts
+        )
+    );
 }
 
 /**
@@ -352,6 +357,6 @@ function getEventLogsQuery({ fromId, toId }) {
 
 module.exports = {
     onTransactionsHistory,
-    clearSocketState: getSocketStateActions().clearSocketState,
+    getSocketStateActions,
     manageEventLogsScanning,
 };

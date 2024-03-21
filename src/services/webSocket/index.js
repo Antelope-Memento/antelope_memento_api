@@ -1,7 +1,7 @@
 const constant = require('../../constants/config');
 const {
     onTransactionsHistory,
-    clearSocketState: clearTransactionsHistorySocketState, // clear for a specific socket
+    getSocketStateActions: getTransactionsHistorySocketStateActions,
     manageEventLogsScanning,
 } = require('./transactionsHistory/index');
 
@@ -17,7 +17,7 @@ function onConnection(socket, io) {
     });
     socket.on(constant.EVENT.DISCONNECT, () => {
         manageEventLogsScanning(io.sockets.sockets.size);
-        clearTransactionsHistorySocketState(socket.id);
+        getTransactionsHistorySocketStateActions(socket.id).clearSocketState();
     });
 }
 
