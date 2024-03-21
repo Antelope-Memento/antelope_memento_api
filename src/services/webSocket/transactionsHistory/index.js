@@ -170,13 +170,21 @@ async function emitTransactionsHistory(socket, args) {
         getSocketState()?.transactionType === TRANSACTIONS_HISTORY_TYPE.TRACE;
 
     if (isTrace) {
-        emitTrace(socket, args);
+        emitTraceTransactions(socket, args);
     } else {
-        emitFork(socket, args);
+        emitForkTransactions(socket, args);
     }
 }
 
-async function emitTrace(
+/**
+ * Emit the trace transactions
+ * @param {Socket} socket
+ * @param {Object} args
+ * @param {string[]} args.accounts
+ * @param {number?} args.start_block
+ * @param {boolean?} args.irreversible
+ * */
+async function emitTraceTransactions(
     socket,
     { accounts, start_block, irreversible = true }
 ) {
@@ -222,17 +230,29 @@ async function emitTrace(
         setSocketState({
             transactionType: TRANSACTIONS_HISTORY_TYPE.FORK,
         });
+    } else {
+        // if a client is too slow in consuming the stream,
+        // the server should switch from head block back to scanning EVENT_LOG specifically for this client.
+        // @TODO: Implement the logic above
+        socket.emit(
+            EVENT.TRANSACTIONS_HISTORY,
+            formatTransactions(
+                transactionsHistory,
+                TRANSACTIONS_HISTORY_TYPE.TRACE
+            )
+        );
     }
-    // if a client is too slow in consuming the stream,
-    // the server should switch from head block back to scanning EVENT_LOG specifically for this client.
-    // @TODO: Implement the logic above
-    socket.emit(
-        EVENT.TRANSACTIONS_HISTORY,
-        formatTransactions(transactionsHistory, TRANSACTIONS_HISTORY_TYPE.TRACE)
-    );
 }
 
-async function emitFork(socket, { accounts }) {
+/**
+ * Emit the fork transactions
+ * @param {Socket} socket
+ * @param {Object} args
+ * @param {string[]} args.accounts
+ * @param {number?} args.start_block
+ * @param {boolean?} args.irreversible
+ * */
+async function emitForkTransactions(socket, { accounts }) {
     // If the scanning delays behind the last irreversible block,
     // the server should switch to scanning RECEIPTS and TRANSACTIONS.
     // @TODO: Implement the logic above
@@ -360,6 +380,17 @@ function getEventLogsQuery({ fromId, toId }) {
         WHERE id > '${fromId}'
         AND id <= '${toId}'
         ORDER BY id DESC
+    `;
+}
+
+/**
+ * Get the query to fetch the head block
+ * @returns {String}
+ */
+function getHeadBlockQuery() {
+    return `
+        SELECT MAX(block_num) as block_num
+        FROM SYNC
     `;
 }
 
