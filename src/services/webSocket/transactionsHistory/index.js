@@ -11,22 +11,21 @@ const {
     isJsonString,
 } = require('../../../utilities/helpers');
 
-const MAX_WS_TRANSACTIONS_COUNT =
-    process.env.MAX_WS_IRREVERSIBLE_TRANSACTIONS_COUNT ?? 1000;
-const MAX_WS_EVENT_LOG_COUNT =
-    process.env.MAX_REVERSIBLE_TRANSACTIONS_COUNT ?? 100;
+const TRANSACTIONS_LIMIT = +process.env.MAX_WS_TRANSACTIONS_COUNT ?? 1000;
+const EVENT_LOGS_LIMIT = +process.env.MAX_WS_EVENT_LOGS_COUNT ?? 100;
 
-const EMIT_INTERVAL_TIME = 2000; // Time in milliseconds to emit transactions_history event
+const EMIT_INTERVAL_TIME = 1000; // Time in milliseconds to emit transactions_history event
 const EVENT_LOGS_SCAN_INTERVAL_TIME = 500; // Time in milliseconds to scan the EVENT_LOG table
 
 /**
  * The state of the transactionsHistory service
- * @type {{sockets: {string: {intervalId: number, lastTransactionBlockNum: number, transactionType: 'trace'|'fork'}}, eventLogs: Array<{}>, shouldScanEventLogs: boolean}}
+ * @type {{sockets: {string: {intervalId: number, lastTransactionBlockNum: number, transactionType: 'trace'|'fork'}}, eventLogs: Array<{}>, shouldScanEventLogs: boolean,lastIrreversibleBlock: number}}
  * */
 const state = {
     sockets: {},
-    eventLogs: [],
+    eventLogs: { data: [], lastEventLogId: 0 },
     shouldScanEventLogs: false,
+    lastIrreversibleBlock: 0,
 };
 
 setInterval(() => {
@@ -39,19 +38,31 @@ async function scanEventLogs() {
         return;
     }
 
-    const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
-    const lastEventLog = await db.ExecuteQueryAsync(
-        getLastEventLogQuery(lastIrreversibleBlock)
+    let fromId;
+
+    if (!state.eventLogs.lastEventLogId) {
+        const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
+        const fromEventLog = await db.ExecuteQueryAsync(
+            getEventLogQuery(lastIrreversibleBlock)
+        );
+
+        fromId = fromEventLog[0][db.is_mysql ? 'MAX(id)' : 'max'];
+    } else {
+        fromId = state.eventLogs.lastEventLogId;
+    }
+
+    const eventLogs = await db.ExecuteQueryAsync(
+        getEventLogsQuery({
+            fromId,
+            toId: fromId + EVENT_LOGS_LIMIT,
+        })
     );
 
-    if (isNotEmptyArray(lastEventLog)) {
-        const lastEventLogId = lastEventLog[0]['MAX(id)'];
-        state.eventLogs = await db.ExecuteQueryAsync(
-            getLastEventLogsQuery({
-                fromId: lastEventLogId,
-                toId: lastEventLogId + MAX_WS_EVENT_LOG_COUNT,
-            })
-        );
+    if (isNotEmptyArray(eventLogs)) {
+        state.eventLogs = {
+            data: eventLogs,
+            lastEventLogId: eventLogs[0]?.id,
+        };
     }
 }
 
@@ -70,7 +81,7 @@ function getSocketStateActions() {
          * Initialize the state for a specific socket connection
          * @param {string} socketId - The id of the socket connection
          * */
-        initializeState: (socketId) => {
+        initializeSocketState: (socketId) => {
             state.sockets[socketId] = {
                 intervalId: null,
                 lastTransactionBlockNum: 0,
@@ -82,13 +93,13 @@ function getSocketStateActions() {
          * @param {string} socketId - The id of the socket connection
          * @returns {{intervalId: number, lastTransactionBlockNum: number, transactionType: 'trace'|'fork'}}
          * */
-        getState: (socketId) => state.sockets[socketId],
+        getSocketState: (socketId) => state.sockets[socketId],
         /**
          * Set the state for a specific socket connection
          * @param {string} socketId - The id of the socket connection
          * @param {{intervalId?: number, lastTransactionBlockNum?: number, transactionType?: 'trace'|'fork'}} newState
          * */
-        setState: (socketId, newState) => {
+        setSocketState: (socketId, newState) => {
             state.sockets[socketId] = {
                 ...state.sockets[socketId],
                 ...newState,
@@ -98,7 +109,7 @@ function getSocketStateActions() {
          * Clear the state for a specific socket connection
          * @param {string} socketId - The id of the socket connection
          * */
-        clearState: (socketId) => {
+        clearSocketState: (socketId) => {
             if (state.sockets[socketId]) {
                 clearInterval(state.sockets[socketId].intervalId);
                 delete state.sockets[socketId];
@@ -125,15 +136,16 @@ async function onTransactionsHistory(socket, args) {
         setTimeout(() => socket.disconnect(), 1000);
         return;
     }
-    const { initializeState, setState, getState } = getSocketStateActions();
+    const { initializeSocketState, setSocketState, getSocketState } =
+        getSocketStateActions();
 
     // initialize the state for the socket connection (only once per connection)
-    if (!getState(socket.id)) {
-        initializeState(socket.id);
+    if (!getSocketState(socket.id)) {
+        initializeSocketState(socket.id);
     }
 
     // send the transactions history to the client every EMIT_INTERVAL_TIME milliseconds
-    setState(socket.id, {
+    setSocketState(socket.id, {
         intervalId: setInterval(() => {
             emitTransactionsHistory(socket, args);
         }, EMIT_INTERVAL_TIME),
@@ -152,15 +164,25 @@ async function emitTransactionsHistory(
     socket,
     { accounts, start_block, irreversible = true }
 ) {
-    const { setState, getState } = getSocketStateActions();
+    const { setSocketState, getSocketState } = getSocketStateActions();
 
     const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
+    const prevLastIrreversibleBlock = state.lastIrreversibleBlock;
+
+    const shouldSkipEmit = lastIrreversibleBlock === prevLastIrreversibleBlock;
+
+    if (shouldSkipEmit) {
+        return;
+    }
+
+    state.lastIrreversibleBlock = lastIrreversibleBlock;
+
     const transactionsHistory = await db.ExecuteQueryAsync(
         getTransactionsQuery({
             accounts,
             fromBlock: Math.max(
                 start_block ?? lastIrreversibleBlock,
-                getState(socket.id)?.lastTransactionBlockNum
+                getSocketState(socket.id)?.lastTransactionBlockNum
             ),
             toBlock: lastIrreversibleBlock,
         })
@@ -169,24 +191,29 @@ async function emitTransactionsHistory(
     if (isNotEmptyArray(transactionsHistory)) {
         const lastTransactionBlockNum =
             transactionsHistory[transactionsHistory.length - 1].block_num;
-        setState(socket.id, { lastTransactionBlockNum });
+        setSocketState(socket.id, { lastTransactionBlockNum });
     }
 
-    const { lastTransactionBlockNum, transactionType } = getState(socket.id);
+    const { lastTransactionBlockNum, transactionType } = getSocketState(
+        socket.id
+    );
 
-    if (
+    const shouldSwitchToFork =
         !irreversible &&
         lastTransactionBlockNum === lastIrreversibleBlock &&
-        transactionType !== TRANSACTIONS_HISTORY_TYPE.FORK
-    ) {
-        setState(socket.id, {
+        transactionType !== TRANSACTIONS_HISTORY_TYPE.FORK;
+
+    if (shouldSwitchToFork) {
+        setSocketState(socket.id, {
             transactionType: TRANSACTIONS_HISTORY_TYPE.FORK,
         });
     }
 
-    if (
-        getState(socket.id)?.transactionType === TRANSACTIONS_HISTORY_TYPE.TRACE
-    ) {
+    const isTrace =
+        getSocketState(socket.id)?.transactionType ===
+        TRANSACTIONS_HISTORY_TYPE.TRACE;
+
+    if (isTrace) {
         socket.emit(
             EVENT.TRANSACTIONS_HISTORY,
             formatTransactions(
@@ -198,7 +225,11 @@ async function emitTransactionsHistory(
         // start receiving data from EVENT_LOG table
         socket.emit(
             EVENT.TRANSACTIONS_HISTORY,
-            formatTransactions(state.eventLogs, TRANSACTIONS_HISTORY_TYPE.FORK)
+            formatTransactions(
+                state.eventLogs.data,
+                TRANSACTIONS_HISTORY_TYPE.FORK,
+                accounts
+            )
         );
     }
 }
@@ -245,15 +276,19 @@ function validateArgs(args) {
  * Format the transactions
  * @param {Array} transactions - The transactions array
  * @param {string} type - The type of the transactions ('trace' or 'fork')
+ * @param {string[]?} accounts - The accounts to filter the transactions
  * @returns {Array}
  * */
-function formatTransactions(transactions, type) {
+function formatTransactions(transactions, type, accounts) {
     const parsedTraces = transactions.map(({ trace, ...tx }) => ({
         ...tx,
         type,
         data: isJsonString(trace) ? JSON.parse(trace) : trace,
     }));
-    return type === TRANSACTIONS_HISTORY_TYPE.FORK
+
+    const isFork = type === TRANSACTIONS_HISTORY_TYPE.FORK;
+
+    return isFork
         ? parsedTraces.filter((tx) =>
               tx.data.trace.action_traces.some(({ receiver }) =>
                   accounts.includes(receiver)
@@ -272,24 +307,25 @@ function formatTransactions(transactions, type) {
  */
 function getTransactionsQuery({ accounts, fromBlock, toBlock }) {
     return `
-        SELECT block_num, trace
+        SELECT ${db.is_mysql ? '' : 'R.'}block_num, trace
         FROM (
-            SELECT DISTINCT seq
+            SELECT DISTINCT seq${db.is_mysql ? '' : ', block_num'}
             FROM RECEIPTS
             WHERE receiver IN (${accounts.map((account) => `'${account}'`).join()})
             AND block_num >= '${fromBlock}'
             AND block_num <= '${toBlock}'
-            LIMIT ${MAX_WS_TRANSACTIONS_COUNT}
+            ORDER BY block_num DESC
+            LIMIT ${TRANSACTIONS_LIMIT}
         ) AS R
         INNER JOIN TRANSACTIONS ON R.seq = TRANSACTIONS.seq
     `;
 }
 /**
- * Get the query to fetch the last event log
+ * Get the query to fetch the event log
  * @param {number} blockNum
  * @returns {String}
  */
-function getLastEventLogQuery(blockNum) {
+function getEventLogQuery(blockNum) {
     return `
         SELECT MAX(id) 
         FROM EVENT_LOG 
@@ -298,13 +334,13 @@ function getLastEventLogQuery(blockNum) {
 }
 
 /**
- * Get the query to fetch the last event logs
+ * Get the query to fetch the event logs
  * @param {Object} args
  * @param {number} args.fromId
  * @param {number} args.toId
  * @returns {String}
  */
-function getLastEventLogsQuery({ fromId, toId }) {
+function getEventLogsQuery({ fromId, toId }) {
     return `
         SELECT id, block_num, data as trace
         FROM EVENT_LOG
@@ -316,6 +352,6 @@ function getLastEventLogsQuery({ fromId, toId }) {
 
 module.exports = {
     onTransactionsHistory,
-    clearSocketState: getSocketStateActions().clearState,
+    clearSocketState: getSocketStateActions().clearSocketState,
     manageEventLogsScanning,
 };
