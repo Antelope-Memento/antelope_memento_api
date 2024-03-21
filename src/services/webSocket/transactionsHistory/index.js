@@ -11,33 +11,46 @@ const {
     isJsonString,
 } = require('../../../utilities/helpers');
 
-const TRANSACTIONS_LIMIT = +process.env.MAX_WS_TRANSACTIONS_COUNT ?? 1000;
-const EVENT_LOGS_LIMIT = +process.env.MAX_WS_EVENT_LOGS_COUNT ?? 100;
+const TRANSACTIONS_LIMIT =
+    Number(process.env.MAX_WS_TRANSACTIONS_COUNT) ?? 1000;
+const EVENT_LOGS_LIMIT = Number(process.env.MAX_WS_EVENT_LOGS_COUNT) ?? 100;
 
 const EMIT_INTERVAL_TIME = 1000; // Time in milliseconds to emit transactions_history event
 const EVENT_LOGS_SCAN_INTERVAL_TIME = 500; // Time in milliseconds to scan the EVENT_LOG table
 
 /**
  * The state of the transactionsHistory service
- * @type {{sockets: {string: {intervalId: number, lastTransactionBlockNum: number, transactionType: 'trace'|'fork'}}, eventLogs: Array<{}>, shouldScanEventLogs: boolean,lastIrreversibleBlock: number}}
+ * @type {{sockets: {string: {intervalId: number, lastTransactionBlockNum: number, transactionType: 'trace'|'fork'}}, eventLogs: Array<{}>, eventLogsIntervalId: number,lastIrreversibleBlock: number}}
  * */
 const state = {
     sockets: {},
     eventLogs: { data: [], lastEventLogId: 0 },
-    shouldScanEventLogs: false,
+    eventLogsIntervalId: null,
     lastIrreversibleBlock: 0,
 };
 
-setInterval(() => {
-    scanEventLogs();
-}, EVENT_LOGS_SCAN_INTERVAL_TIME);
+// setInterval(() => {
+//     scanEventLogs();
+// }, EVENT_LOGS_SCAN_INTERVAL_TIME);
+
+/**
+ * Manage the scanning of the event logs
+ * @param {number} connectionsCount - The number of active socket connections
+ * */
+function manageEventLogsScanning(connectionsCount) {
+    if (connectionsCount > 0 && !state.eventLogsIntervalId) {
+        state.eventLogsIntervalId = setInterval(() => {
+            scanEventLogs();
+        }, EVENT_LOGS_SCAN_INTERVAL_TIME);
+    }
+    if (!connectionsCount) {
+        clearInterval(state.eventLogsIntervalId);
+        state.eventLogsIntervalId = null;
+    }
+}
 
 // scan the event logs and save them to the state
 async function scanEventLogs() {
-    if (!state.shouldScanEventLogs) {
-        return;
-    }
-
     let fromId;
 
     if (!state.eventLogs.lastEventLogId) {
@@ -54,7 +67,7 @@ async function scanEventLogs() {
     const eventLogs = await db.ExecuteQueryAsync(
         getEventLogsQuery({
             fromId,
-            toId: fromId + EVENT_LOGS_LIMIT,
+            toId: Number(fromId) + Number(EVENT_LOGS_LIMIT),
         })
     );
 
@@ -64,14 +77,6 @@ async function scanEventLogs() {
             lastEventLogId: eventLogs[0]?.id,
         };
     }
-}
-
-/**
- * Manage the scanning of the event logs
- * @param {number} connectionsCount - The number of active socket connections
- * */
-function manageEventLogsScanning(connectionsCount) {
-    state.shouldScanEventLogs = connectionsCount > 0;
 }
 
 /**
@@ -111,10 +116,8 @@ function getSocketStateActions(socketId) {
         clearSocketState: () => {
             if (state.sockets[socketId]) {
                 clearInterval(state.sockets[socketId].intervalId);
-                console.log('before clearing =>', state.sockets);
                 delete state.sockets[socketId];
             }
-            console.log('state.sockets', state.sockets);
         },
     };
 }
@@ -202,8 +205,7 @@ async function emitTrace(
     );
 
     if (isNotEmptyArray(transactionsHistory)) {
-        const lastTransactionBlockNum =
-            transactionsHistory[transactionsHistory.length - 1].block_num;
+        const lastTransactionBlockNum = transactionsHistory[0].block_num;
         setSocketState({ lastTransactionBlockNum });
     }
 
@@ -213,15 +215,17 @@ async function emitTrace(
 
     const shouldSwitchToFork =
         !irreversible &&
-        lastTransactionBlockNum === lastIrreversibleBlock &&
+        Number(lastTransactionBlockNum) === Number(lastIrreversibleBlock) &&
         transactionType !== TRANSACTIONS_HISTORY_TYPE.FORK;
 
     if (shouldSwitchToFork) {
-        setSocketState(socket.id, {
+        setSocketState({
             transactionType: TRANSACTIONS_HISTORY_TYPE.FORK,
         });
     }
-
+    // if a client is too slow in consuming the stream,
+    // the server should switch from head block back to scanning EVENT_LOG specifically for this client.
+    // @TODO: Implement the logic above
     socket.emit(
         EVENT.TRANSACTIONS_HISTORY,
         formatTransactions(transactionsHistory, TRANSACTIONS_HISTORY_TYPE.TRACE)
@@ -229,6 +233,10 @@ async function emitTrace(
 }
 
 async function emitFork(socket, { accounts }) {
+    // If the scanning delays behind the last irreversible block,
+    // the server should switch to scanning RECEIPTS and TRANSACTIONS.
+    // @TODO: Implement the logic above
+
     socket.emit(
         EVENT.TRANSACTIONS_HISTORY,
         formatTransactions(
