@@ -11,8 +11,7 @@ const {
     isJsonString,
 } = require('../../../utilities/helpers');
 
-const TRANSACTIONS_LIMIT =
-    Number(process.env.MAX_WS_TRANSACTIONS_COUNT) ?? 1000;
+const TRANSACTIONS_LIMIT = Number(process.env.MAX_WS_TRANSACTIONS_COUNT) ?? 100;
 const EVENT_LOGS_LIMIT = Number(process.env.MAX_WS_EVENT_LOGS_COUNT) ?? 100;
 
 const EMIT_INTERVAL_TIME = 1000; // Time in milliseconds to emit transactions_history event
@@ -28,21 +27,23 @@ const state = {
     eventLogsIntervalId: null,
 };
 
-// setInterval(() => {
-//     scanEventLogs();
-// }, EVENT_LOGS_SCAN_INTERVAL_TIME);
-
 /**
  * Manage the scanning of the event logs
  * @param {number} connectionsCount - The number of active socket connections
  * */
 function manageEventLogsScanning(connectionsCount) {
     if (connectionsCount > 0 && !state.eventLogsIntervalId) {
-        state.eventLogsIntervalId = setInterval(() => {
-            scanEventLogs();
+        // start scanning the event logs if there are active socket connections
+        state.eventLogsIntervalId = setInterval(async () => {
+            try {
+                await scanEventLogs();
+            } catch (error) {
+                console.error('error scanning event logs:', error);
+            }
         }, EVENT_LOGS_SCAN_INTERVAL_TIME);
     }
     if (!connectionsCount) {
+        // stop scanning the event logs if there are no active socket connections
         clearInterval(state.eventLogsIntervalId);
         state.eventLogsIntervalId = null;
     }
@@ -149,8 +150,12 @@ async function onTransactionsHistory(socket, args) {
 
     // send the transactions history to the client every EMIT_INTERVAL_TIME milliseconds
     setSocketState({
-        intervalId: setInterval(() => {
-            emitTransactionsHistory(socket, args);
+        intervalId: setInterval(async () => {
+            try {
+                await emitTransactionsHistory(socket, args);
+            } catch (error) {
+                console.error('error emitting transactions history:', error);
+            }
         }, EMIT_INTERVAL_TIME),
     });
 }
@@ -171,49 +176,102 @@ async function emitTransactionsHistory(
     const { lastTransactionBlockNum, transactionType } = getSocketState();
 
     const headBlock = await db.GetLastSyncedBlockNumber();
+    const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
 
     const startBlock = Math.max(
         start_block ?? headBlock,
         lastTransactionBlockNum
     );
 
-    const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
+    const shouldSwitchToTrace = shouldSwitchToTraceType({
+        start_block,
+        startBlock,
+        lastIrreversibleBlock,
+        irreversible,
+        transactionType,
+    });
 
-    const shouldSwitchToTrace =
-        ((start_block && startBlock < +lastIrreversibleBlock) ||
-            irreversible) &&
-        transactionType !== TRANSACTIONS_HISTORY_TYPE.TRACE;
+    const shouldSwitchToFork = shouldSwitchToForkType({
+        lastTransactionBlockNum,
+        lastIrreversibleBlock,
+        start_block,
+        irreversible,
+        transactionType,
+    });
 
     if (shouldSwitchToTrace) {
         setSocketState({
             transactionType: TRANSACTIONS_HISTORY_TYPE.TRACE,
         });
-    }
-
-    const shouldSwitchToFork =
-        (lastTransactionBlockNum >= lastIrreversibleBlock || !start_block) &&
-        !irreversible &&
-        transactionType !== TRANSACTIONS_HISTORY_TYPE.FORK;
-
-    if (shouldSwitchToFork) {
+    } else if (shouldSwitchToFork) {
         setSocketState({
             transactionType: TRANSACTIONS_HISTORY_TYPE.FORK,
         });
     }
 
+    emitTransactionsBasedOnType({
+        transactionType,
+        socket,
+        accounts,
+        startBlock,
+        lastIrreversibleBlock,
+        irreversible,
+    });
+}
+
+function shouldSwitchToTraceType({
+    start_block,
+    startBlock,
+    lastIrreversibleBlock,
+    irreversible,
+    transactionType,
+}) {
+    return (
+        ((start_block && startBlock < Number(lastIrreversibleBlock)) ||
+            irreversible) &&
+        transactionType !== TRANSACTIONS_HISTORY_TYPE.TRACE
+    );
+}
+
+function shouldSwitchToForkType({
+    lastTransactionBlockNum,
+    lastIrreversibleBlock,
+    start_block,
+    irreversible,
+    transactionType,
+}) {
+    return (
+        (lastTransactionBlockNum >= lastIrreversibleBlock || !start_block) &&
+        !irreversible &&
+        transactionType !== TRANSACTIONS_HISTORY_TYPE.FORK
+    );
+}
+
+function emitTransactionsBasedOnType({
+    transactionType,
+    socket,
+    accounts,
+    startBlock,
+    lastIrreversibleBlock,
+    irreversible,
+}) {
     if (transactionType === TRANSACTIONS_HISTORY_TYPE.TRACE) {
-        const shouldExecute = lastIrreversibleBlock !== lastTransactionBlockNum;
+        const shouldExecute = lastIrreversibleBlock !== startBlock;
 
         if (shouldExecute) {
+            const toBlock = irreversible
+                ? Math.min(
+                      startBlock + TRANSACTIONS_LIMIT,
+                      lastIrreversibleBlock
+                  )
+                : startBlock + TRANSACTIONS_LIMIT;
             emitTraceTransactions(socket, {
                 accounts,
                 fromBlock: startBlock,
-                toBlock: irreversible ? lastIrreversibleBlock : headBlock,
+                toBlock,
             });
         }
-    }
-
-    if (transactionType === TRANSACTIONS_HISTORY_TYPE.FORK) {
+    } else if (transactionType === TRANSACTIONS_HISTORY_TYPE.FORK) {
         emitForkTransactions(socket, { accounts });
     }
 }
@@ -226,11 +284,7 @@ async function emitTransactionsHistory(
  * @param {number} args.fromBlock
  * @param {number} args.toBlock
  * */
-async function emitTraceTransactions(
-    socket,
-    { accounts, fromBlock, toBlock },
-    shouldExecute
-) {
+async function emitTraceTransactions(socket, { accounts, fromBlock, toBlock }) {
     const { setSocketState } = getSocketStateActions(socket.id);
 
     const transactionsHistory = await db.ExecuteQueryAsync(
