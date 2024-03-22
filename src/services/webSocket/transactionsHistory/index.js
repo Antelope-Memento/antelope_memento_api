@@ -199,6 +199,12 @@ async function emitTransactionsHistory(
         transactionType,
     });
 
+    // If a client is too slow in consuming the stream,
+    // the server should switch from head block back to scanning EVENT_LOG specifically for this client.
+    // If the scanning delays behind the last irreversible block,
+    // the server should switch to scanning RECEIPTS and TRANSACTIONS.
+    // @TODO: Implement the logic above
+
     if (shouldSwitchToTrace) {
         setSocketState({
             transactionType: TRANSACTIONS_HISTORY_TYPE.TRACE,
@@ -219,6 +225,16 @@ async function emitTransactionsHistory(
     });
 }
 
+/**
+ * Check if the websocket should emit trace transactions
+ * @param {Object} args
+ * @param {number?} args.start_block
+ * @param {number} args.startBlock
+ * @param {number} args.lastIrreversibleBlock
+ * @param {boolean} args.irreversible
+ * @param {string} args.transactionType
+ * @returns {boolean}
+ * */
 function shouldSwitchToTraceType({
     start_block,
     startBlock,
@@ -233,6 +249,16 @@ function shouldSwitchToTraceType({
     );
 }
 
+/**
+ * Check if the websocket should emit fork transactions
+ * @param {Object} args
+ * @param {number} args.lastTransactionBlockNum
+ * @param {number} args.lastIrreversibleBlock
+ * @param {number?} args.start_block
+ * @param {boolean} args.irreversible
+ * @param {string} args.transactionType
+ * @returns {boolean}
+ * */
 function shouldSwitchToForkType({
     lastTransactionBlockNum,
     lastIrreversibleBlock,
@@ -247,6 +273,16 @@ function shouldSwitchToForkType({
     );
 }
 
+/**
+ * Emit the transactions based on the transaction type
+ * @param {Object} args
+ * @param {string} args.transactionType
+ * @param {Socket} args.socket
+ * @param {string[]} args.accounts
+ * @param {number} args.startBlock
+ * @param {number} args.lastIrreversibleBlock
+ * @param {boolean} args.irreversible
+ * */
 function emitTransactionsBasedOnType({
     transactionType,
     socket,
@@ -302,9 +338,6 @@ async function emitTraceTransactions(socket, { accounts, fromBlock, toBlock }) {
         });
     }
 
-    //     // if a client is too slow in consuming the stream,
-    //     // the server should switch from head block back to scanning EVENT_LOG specifically for this client.
-    //     // @TODO: Implement the logic above
     socket.emit(
         EVENT.TRANSACTIONS_HISTORY,
         formatTransactions(transactionsHistory, TRANSACTIONS_HISTORY_TYPE.TRACE)
@@ -318,10 +351,6 @@ async function emitTraceTransactions(socket, { accounts, fromBlock, toBlock }) {
  * @param {string[]} args.accounts
  * */
 async function emitForkTransactions(socket, { accounts }) {
-    // If the scanning delays behind the last irreversible block,
-    // the server should switch to scanning RECEIPTS and TRANSACTIONS.
-    // @TODO: Implement the logic above
-
     socket.emit(
         EVENT.TRANSACTIONS_HISTORY,
         formatTransactions(
