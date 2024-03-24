@@ -1,5 +1,13 @@
 import { Socket } from 'socket.io';
-import { State, SocketId, TransactionType, Args } from './types';
+import {
+    State,
+    SocketId,
+    TransactionType,
+    Args,
+    SocketState,
+    EventLogEntity,
+    TransactionEntity,
+} from './types';
 
 import db from '../../../utilities/db'; // @TODO: add typescript to DB configuration
 import { EVENT, EVENT_ERRORS } from '../../../constants/config';
@@ -7,7 +15,6 @@ import {
     isNumber,
     isNotEmptyArray,
     isNotEmptyArrayOfAccounts,
-    isJsonString,
 } from '../../../utilities/helpers';
 
 const TRANSACTIONS_LIMIT = Number(process.env.MAX_WS_TRANSACTIONS_COUNT) ?? 100;
@@ -80,23 +87,20 @@ function getSocketStateActions(socketId: SocketId) {
             };
         },
         getSocketState: () => state.sockets[socketId],
-        setSocketState: (newState: {
-            intervalId?: NodeJS.Timeout;
-            lastTransactionBlockNum?: number;
-            transactionType?: TransactionType | null;
-        }) => {
+        setSocketState: (newState: Partial<SocketState>) => {
             state.sockets[socketId] = {
                 ...state.sockets[socketId],
                 ...newState,
             };
         },
         clearSocketState: () => {
-            if (state.sockets[socketId].intervalId) {
-                clearInterval(
-                    state.sockets[socketId].intervalId as NodeJS.Timeout
-                );
+            const interval = state.sockets[socketId].intervalId;
+            if (interval) {
+                clearInterval(interval);
             }
-            if (state.sockets[socketId]) {
+
+            const socketState = state.sockets[socketId];
+            if (socketState) {
                 delete state.sockets[socketId];
             }
         },
@@ -279,6 +283,11 @@ async function emitTraceTransactions(
     }
 ) {
     const { setSocketState } = getSocketStateActions(socket.id);
+    console.log('trace transactions executed with filters:', {
+        accounts,
+        fromBlock,
+        toBlock,
+    });
 
     const transactionsHistory = await db.ExecuteQueryAsync(
         getTransactionsQuery({
@@ -287,6 +296,7 @@ async function emitTraceTransactions(
             toBlock,
         })
     );
+    console.log('transactionsHistory:', transactionsHistory[0]);
 
     if (isNotEmptyArray(transactionsHistory)) {
         const lastTransactionBlockNum = transactionsHistory[0].block_num;
@@ -305,6 +315,12 @@ async function emitForkTransactions(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
+    console.log('fork transactions executed with filters:', {
+        accounts,
+    });
+
+    console.log('state.eventLogs.data:', state.eventLogs.data);
+
     socket.emit(
         EVENT.TRANSACTIONS_HISTORY,
         formatTransactions(state.eventLogs.data, 'fork', accounts)
@@ -343,14 +359,14 @@ function validateArgs(args: Args) {
 }
 
 function formatTransactions(
-    transactions: any[],
+    transactions: (EventLogEntity | TransactionEntity)[],
     type: TransactionType,
     accounts: string[]
 ) {
     const parsedTraces = transactions.map(({ trace, ...tx }) => ({
         ...tx,
         type,
-        data: isJsonString(trace) ? JSON.parse(trace) : trace,
+        data: JSON.parse(trace.toString('utf8')),
     }));
 
     const isFork = type === 'fork';
