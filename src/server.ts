@@ -1,16 +1,16 @@
-const express = require('express');
-const http = require('http');
-const cors = require('cors');
-const morgan = require('morgan');
-const cluster = require('cluster');
-const { Server } = require('socket.io');
+import express from 'express';
+import http from 'http';
+import cors from 'cors';
+import morgan from 'morgan';
+import cluster from 'cluster';
+import { Server } from 'socket.io';
 
-require('dotenv').config();
+import 'dotenv/config';
 
-const router = require('./routes/routes');
-const dbUtility = require('./utilities/db');
-const constant = require('./constants/config');
-const { onConnection } = require('./services/webSocket');
+import router from './routes/routes';
+import dbUtility from './utilities/db';
+import constant from './constants/config';
+import { onConnection } from './services/webSocket';
 
 const app = express();
 const server = http.createServer(app);
@@ -20,7 +20,6 @@ const io = new Server(server, {
         origin: '*',
     },
 });
-
 
 const connectedClients = new Map();
 
@@ -69,13 +68,13 @@ app.get(`/${process.env.API_PATH_PREFIX}`, (req, res) => {
 
 dbUtility.CreateConnectionPool();
 
-var port = process.env.SERVER_BIND_PORT || 12345;
-var bind_ip = process.env.SERVER_BIND_IP || '0.0.0.0';
+const port = Number(process.env.SERVER_BIND_PORT) || 12345;
+const bind_ip = process.env.SERVER_BIND_IP || '0.0.0.0';
 
-createClusteredServer(bind_ip, port, process.env.CPU_CORES);
+createClusteredServer(bind_ip, port, Number(process.env.CPU_CORES));
 
 //create clustered server and bind with specified ip address and port number
-function createClusteredServer(ip, port, clusterSize) {
+function createClusteredServer(ip: string, port: number, clusterSize: number) {
     if (clusterSize > 1) {
         if (cluster.isMaster) {
             console.log(`Master ${process.pid} is running`);
@@ -108,11 +107,11 @@ function createClusteredServer(ip, port, clusterSize) {
     }
 }
 
-var gracefulExit = function () {
+function gracefulExit() {
     console.log('Close DB connection');
     dbUtility.CloseConnection();
     process.exit(0);
-};
+}
 
 // If the Node process ends, close the DB connection
 process.on('SIGINT', gracefulExit).on('SIGTERM', gracefulExit);

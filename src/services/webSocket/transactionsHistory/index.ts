@@ -1,15 +1,14 @@
-const db = require('../../../utilities/db');
-const {
-    EVENT,
-    EVENT_ERRORS,
-    TRANSACTIONS_HISTORY_TYPE,
-} = require('../../../constants/config');
-const {
+import { Socket } from 'socket.io';
+import { State, SocketId, TransactionType, Args } from './types';
+
+import db from '../../../utilities/db'; // @TODO: add typescript to DB configuration
+import { EVENT, EVENT_ERRORS } from '../../../constants/config';
+import {
     isNumber,
     isNotEmptyArray,
     isNotEmptyArrayOfAccounts,
     isJsonString,
-} = require('../../../utilities/helpers');
+} from '../../../utilities/helpers';
 
 const TRANSACTIONS_LIMIT = Number(process.env.MAX_WS_TRANSACTIONS_COUNT) ?? 100;
 const EVENT_LOGS_LIMIT = Number(process.env.MAX_WS_EVENT_LOGS_COUNT) ?? 100;
@@ -17,21 +16,13 @@ const EVENT_LOGS_LIMIT = Number(process.env.MAX_WS_EVENT_LOGS_COUNT) ?? 100;
 const EMIT_INTERVAL_TIME = 1000; // Time in milliseconds to emit transactions_history event
 const EVENT_LOGS_SCAN_INTERVAL_TIME = 500; // Time in milliseconds to scan the EVENT_LOG table
 
-/**
- * The state of the transactionsHistory service
- * @type {{sockets: {string: {intervalId: number, lastTransactionBlockNum: number, transactionType: 'trace'|'fork' | null}}, eventLogs: Array<{}>, eventLogsIntervalId: number}}
- * */
-const state = {
+const state: State = {
     sockets: {},
     eventLogs: { data: [], lastEventLogId: 0 },
     eventLogsIntervalId: null,
 };
 
-/**
- * Manage the scanning of the event logs
- * @param {number} connectionsCount - The number of active socket connections
- * */
-function manageEventLogsScanning(connectionsCount) {
+function manageEventLogsScanning(connectionsCount: number) {
     if (connectionsCount > 0 && !state.eventLogsIntervalId) {
         // start scanning the event logs if there are active socket connections
         state.eventLogsIntervalId = setInterval(async () => {
@@ -42,7 +33,7 @@ function manageEventLogsScanning(connectionsCount) {
             }
         }, EVENT_LOGS_SCAN_INTERVAL_TIME);
     }
-    if (!connectionsCount) {
+    if (!connectionsCount && state.eventLogsIntervalId) {
         // stop scanning the event logs if there are no active socket connections
         clearInterval(state.eventLogsIntervalId);
         state.eventLogsIntervalId = null;
@@ -51,7 +42,7 @@ function manageEventLogsScanning(connectionsCount) {
 
 // scan the event logs and save them to the state
 async function scanEventLogs() {
-    let fromId;
+    let fromId: number;
 
     if (!state.eventLogs.lastEventLogId) {
         const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
@@ -59,7 +50,7 @@ async function scanEventLogs() {
             getEventLogQuery(lastIrreversibleBlock)
         );
 
-        fromId = fromEventLog[0][db.is_mysql ? 'MAX(id)' : 'max'];
+        fromId = fromEventLog[0][(db as any).is_mysql ? 'MAX(id)' : 'max'];
     } else {
         fromId = state.eventLogs.lastEventLogId;
     }
@@ -67,7 +58,7 @@ async function scanEventLogs() {
     const eventLogs = await db.ExecuteQueryAsync(
         getEventLogsQuery({
             fromId,
-            toId: Number(fromId) + Number(EVENT_LOGS_LIMIT),
+            toId: Number(fromId) + EVENT_LOGS_LIMIT,
         })
     );
 
@@ -79,15 +70,8 @@ async function scanEventLogs() {
     }
 }
 
-/**
- * Get the actions to manage the state for a specific socket connection
- * @param {string} socketId - The id of the socket connection
- * */
-function getSocketStateActions(socketId) {
+function getSocketStateActions(socketId: SocketId) {
     return {
-        /**
-         * Initialize the state for a specific socket connection
-         * */
         initializeSocketState: () => {
             state.sockets[socketId] = {
                 intervalId: null,
@@ -95,42 +79,31 @@ function getSocketStateActions(socketId) {
                 transactionType: null,
             };
         },
-        /**
-         * Get the state for a specific socket connection
-         * @returns {{intervalId: number, lastTransactionBlockNum: number, transactionType: 'trace'|'fork'}}
-         * */
         getSocketState: () => state.sockets[socketId],
-        /**
-         * Set the state for a specific socket connection
-         * @param {{intervalId?: number, lastTransactionBlockNum?: number, transactionType?: 'trace'|'fork'}} newState
-         * */
-        setSocketState: (newState) => {
+        setSocketState: (newState: {
+            intervalId?: NodeJS.Timeout;
+            lastTransactionBlockNum?: number;
+            transactionType?: TransactionType | null;
+        }) => {
             state.sockets[socketId] = {
                 ...state.sockets[socketId],
                 ...newState,
             };
         },
-        /**
-         * Clear the state for a specific socket connection
-         * */
         clearSocketState: () => {
+            if (state.sockets[socketId].intervalId) {
+                clearInterval(
+                    state.sockets[socketId].intervalId as NodeJS.Timeout
+                );
+            }
             if (state.sockets[socketId]) {
-                clearInterval(state.sockets[socketId].intervalId);
                 delete state.sockets[socketId];
             }
         },
     };
 }
 
-/**
- * Event handler for 'transactions_history' event.
- * @param {Socket} socket
- * @param {Object} args
- * @param {string[]} args.accounts
- * @param {number?} args.start_block
- * @param {boolean?} args.irreversible
- */
-async function onTransactionsHistory(socket, args) {
+async function onTransactionsHistory(socket: Socket, args: Args) {
     const { valid, message } = validateArgs(args);
 
     if (!valid) {
@@ -160,17 +133,9 @@ async function onTransactionsHistory(socket, args) {
     });
 }
 
-/**
- * Emit the transactions history
- * @param {Socket} socket
- * @param {Object} args
- * @param {string[]} args.accounts
- * @param {number?} args.start_block
- * @param {boolean?} args.irreversible
- * */
 async function emitTransactionsHistory(
-    socket,
-    { accounts, start_block, irreversible = false }
+    socket: Socket,
+    { accounts, start_block, irreversible = false }: Args
 ) {
     const { setSocketState, getSocketState } = getSocketStateActions(socket.id);
     const { lastTransactionBlockNum, transactionType } = getSocketState();
@@ -207,11 +172,11 @@ async function emitTransactionsHistory(
 
     if (shouldSwitchToTrace) {
         setSocketState({
-            transactionType: TRANSACTIONS_HISTORY_TYPE.TRACE,
+            transactionType: 'trace',
         });
     } else if (shouldSwitchToFork) {
         setSocketState({
-            transactionType: TRANSACTIONS_HISTORY_TYPE.FORK,
+            transactionType: 'fork',
         });
     }
 
@@ -225,64 +190,46 @@ async function emitTransactionsHistory(
     });
 }
 
-/**
- * Check if the websocket should emit trace transactions
- * @param {Object} args
- * @param {number?} args.start_block
- * @param {number} args.startBlock
- * @param {number} args.lastIrreversibleBlock
- * @param {boolean} args.irreversible
- * @param {string} args.transactionType
- * @returns {boolean}
- * */
 function shouldSwitchToTraceType({
     start_block,
     startBlock,
     lastIrreversibleBlock,
     irreversible,
     transactionType,
+}: {
+    start_block?: Args['start_block'];
+    startBlock: number;
+    lastIrreversibleBlock: number;
+    irreversible: Args['irreversible'];
+    transactionType: string | null;
 }) {
     return (
         ((start_block && startBlock < Number(lastIrreversibleBlock)) ||
             irreversible) &&
-        transactionType !== TRANSACTIONS_HISTORY_TYPE.TRACE
+        transactionType !== 'trace'
     );
 }
 
-/**
- * Check if the websocket should emit fork transactions
- * @param {Object} args
- * @param {number} args.lastTransactionBlockNum
- * @param {number} args.lastIrreversibleBlock
- * @param {number?} args.start_block
- * @param {boolean} args.irreversible
- * @param {string} args.transactionType
- * @returns {boolean}
- * */
 function shouldSwitchToForkType({
     lastTransactionBlockNum,
     lastIrreversibleBlock,
     start_block,
     irreversible,
     transactionType,
+}: {
+    lastTransactionBlockNum: number;
+    lastIrreversibleBlock: number;
+    start_block?: Args['start_block'];
+    irreversible: Args['irreversible'];
+    transactionType: TransactionType | null;
 }) {
     return (
         (lastTransactionBlockNum >= lastIrreversibleBlock || !start_block) &&
         !irreversible &&
-        transactionType !== TRANSACTIONS_HISTORY_TYPE.FORK
+        transactionType !== 'fork'
     );
 }
 
-/**
- * Emit the transactions based on the transaction type
- * @param {Object} args
- * @param {string} args.transactionType
- * @param {Socket} args.socket
- * @param {string[]} args.accounts
- * @param {number} args.startBlock
- * @param {number} args.lastIrreversibleBlock
- * @param {boolean} args.irreversible
- * */
 function emitTransactionsBasedOnType({
     transactionType,
     socket,
@@ -290,8 +237,15 @@ function emitTransactionsBasedOnType({
     startBlock,
     lastIrreversibleBlock,
     irreversible,
+}: {
+    transactionType: TransactionType | null;
+    socket: Socket;
+    accounts: Args['accounts'];
+    startBlock: number;
+    lastIrreversibleBlock: number;
+    irreversible: Args['irreversible'];
 }) {
-    if (transactionType === TRANSACTIONS_HISTORY_TYPE.TRACE) {
+    if (transactionType === 'trace') {
         const shouldExecute = lastIrreversibleBlock !== startBlock;
 
         if (shouldExecute) {
@@ -307,20 +261,23 @@ function emitTransactionsBasedOnType({
                 toBlock,
             });
         }
-    } else if (transactionType === TRANSACTIONS_HISTORY_TYPE.FORK) {
+    } else if (transactionType === 'fork') {
         emitForkTransactions(socket, { accounts });
     }
 }
 
-/**
- * Emit the trace transactions
- * @param {Socket} socket
- * @param {Object} args
- * @param {string[]} args.accounts
- * @param {number} args.fromBlock
- * @param {number} args.toBlock
- * */
-async function emitTraceTransactions(socket, { accounts, fromBlock, toBlock }) {
+async function emitTraceTransactions(
+    socket: Socket,
+    {
+        accounts,
+        fromBlock,
+        toBlock,
+    }: {
+        accounts: Args['accounts'];
+        fromBlock: number;
+        toBlock: number;
+    }
+) {
     const { setSocketState } = getSocketStateActions(socket.id);
 
     const transactionsHistory = await db.ExecuteQueryAsync(
@@ -340,36 +297,21 @@ async function emitTraceTransactions(socket, { accounts, fromBlock, toBlock }) {
 
     socket.emit(
         EVENT.TRANSACTIONS_HISTORY,
-        formatTransactions(transactionsHistory, TRANSACTIONS_HISTORY_TYPE.TRACE)
+        formatTransactions(transactionsHistory, 'trace', accounts)
     );
 }
 
-/**
- * Emit the fork transactions
- * @param {Socket} socket
- * @param {Object} args
- * @param {string[]} args.accounts
- * */
-async function emitForkTransactions(socket, { accounts }) {
+async function emitForkTransactions(
+    socket: Socket,
+    { accounts }: { accounts: Args['accounts'] }
+) {
     socket.emit(
         EVENT.TRANSACTIONS_HISTORY,
-        formatTransactions(
-            state.eventLogs.data,
-            TRANSACTIONS_HISTORY_TYPE.FORK,
-            accounts
-        )
+        formatTransactions(state.eventLogs.data, 'fork', accounts)
     );
 }
 
-/**
- * Check if the arguments passed to the transactions_history event are valid
- * @param {Object} args
- * @param {string[]} args.accounts
- * @param {number?} args.start_block
- * @param {boolean?} args.irreversible
- * @returns {{valid: boolean, message: string} | {valid: boolean}}
- * */
-function validateArgs(args) {
+function validateArgs(args: Args) {
     const { accounts, start_block, irreversible } = args;
 
     switch (true) {
@@ -399,44 +341,42 @@ function validateArgs(args) {
             };
     }
 }
-/**
- * Format the transactions
- * @param {Array} transactions - The transactions array
- * @param {string} type - The type of the transactions ('trace' or 'fork')
- * @param {string[]?} accounts - The accounts to filter the transactions
- * @returns {Array}
- * */
-function formatTransactions(transactions, type, accounts) {
+
+function formatTransactions(
+    transactions: any[],
+    type: TransactionType,
+    accounts: string[]
+) {
     const parsedTraces = transactions.map(({ trace, ...tx }) => ({
         ...tx,
         type,
         data: isJsonString(trace) ? JSON.parse(trace) : trace,
     }));
 
-    const isFork = type === TRANSACTIONS_HISTORY_TYPE.FORK;
+    const isFork = type === 'fork';
 
     return isFork
         ? parsedTraces.filter((tx) =>
-              tx.data.trace.action_traces.some(({ receiver }) =>
-                  accounts.includes(receiver)
+              (tx.data.trace.action_traces as { receiver: string }[]).some(
+                  ({ receiver }) => accounts.includes(receiver)
               )
           )
         : parsedTraces;
 }
 
-/**
- * Get the query to fetch the transactions
- * @param {Object} args
- * @param {string[]} args.accounts
- * @param {number?} args.fromBlock
- * @param {number} args.toBlock
- * @returns {String}
- */
-function getTransactionsQuery({ accounts, fromBlock, toBlock }) {
+function getTransactionsQuery({
+    accounts,
+    fromBlock,
+    toBlock,
+}: {
+    accounts: Args['accounts'];
+    fromBlock: number;
+    toBlock: number;
+}) {
     return `
-        SELECT ${db.is_mysql ? '' : 'R.'}block_num, trace
+        SELECT ${(db as any).is_mysql ? '' : 'R.'}block_num, trace
         FROM (
-            SELECT DISTINCT seq${db.is_mysql ? '' : ', block_num'}
+            SELECT DISTINCT seq${(db as any).is_mysql ? '' : ', block_num'}
             FROM RECEIPTS
             WHERE receiver IN (${accounts.map((account) => `'${account}'`).join()})
             AND block_num >= '${fromBlock}'
@@ -447,12 +387,7 @@ function getTransactionsQuery({ accounts, fromBlock, toBlock }) {
         INNER JOIN TRANSACTIONS ON R.seq = TRANSACTIONS.seq
     `;
 }
-/**
- * Get the query to fetch the event log
- * @param {number} blockNum
- * @returns {String}
- */
-function getEventLogQuery(blockNum) {
+function getEventLogQuery(blockNum: number) {
     return `
         SELECT MAX(id) 
         FROM EVENT_LOG 
@@ -460,14 +395,7 @@ function getEventLogQuery(blockNum) {
     `;
 }
 
-/**
- * Get the query to fetch the event logs
- * @param {Object} args
- * @param {number} args.fromId
- * @param {number} args.toId
- * @returns {String}
- */
-function getEventLogsQuery({ fromId, toId }) {
+function getEventLogsQuery({ fromId, toId }: { fromId: number; toId: number }) {
     return `
         SELECT id, block_num, data as trace
         FROM EVENT_LOG
@@ -477,7 +405,7 @@ function getEventLogsQuery({ fromId, toId }) {
     `;
 }
 
-module.exports = {
+export {
     onTransactionsHistory,
     getSocketStateActions,
     manageEventLogsScanning,

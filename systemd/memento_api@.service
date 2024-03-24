@@ -3,7 +3,7 @@ Description=Antelope Memento API
 [Service]
 Type=simple
 WorkingDirectory=/opt/antelope_memento_api
-ExecStart=/usr/bin/node -r dotenv/config src/server.js dotenv_config_path=/etc/opt/memento_api_%i.env
+ExecStart=/usr/bin/node -r dotenv/config src/server.ts dotenv_config_path=/etc/opt/memento_api_%i.env
 TimeoutStartSec=10s
 TimeoutStopSec=10s
 Restart=always

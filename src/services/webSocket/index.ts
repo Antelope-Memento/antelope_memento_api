@@ -1,16 +1,17 @@
-const constant = require('../../constants/config');
-const {
+import { Socket, Server } from 'socket.io';
+import constant from '../../constants/config';
+import {
     onTransactionsHistory,
-    getSocketStateActions: getTransactionsHistorySocketStateActions,
+    getSocketStateActions as getTransactionsHistorySocketStateActions,
     manageEventLogsScanning,
-} = require('./transactionsHistory/index');
+} from './transactionsHistory';
+import { Args } from './transactionsHistory/types';
 
-/**
- * @param {Socket} socket - The socket that emitted the event
- * @param {Object} io - The socket.io server instance
- * @param {Map} connectedClients - The map of connected clients
- */
-function onConnection(socket, io, connectedClients) {
+function onConnection(
+    socket: Socket,
+    io: Server,
+    connectedClients: Map<string, boolean>
+) {
     const clientIp = socket.handshake.address;
 
     if (connectedClients.has(clientIp)) {
@@ -20,7 +21,7 @@ function onConnection(socket, io, connectedClients) {
 
         manageEventLogsScanning(io.sockets.sockets.size);
 
-        socket.on(constant.EVENT.TRANSACTIONS_HISTORY, (args) => {
+        socket.on(constant.EVENT.TRANSACTIONS_HISTORY, (args: Args) => {
             onTransactionsHistory(socket, args);
         });
         socket.on(constant.EVENT.DISCONNECT, () => {
@@ -33,4 +34,4 @@ function onConnection(socket, io, connectedClients) {
     }
 }
 
-module.exports = { onConnection };
+export { onConnection };
