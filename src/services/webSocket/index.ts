@@ -7,31 +7,16 @@ import {
 } from './transactionsHistory';
 import { Args } from './transactionsHistory/types';
 
-function onConnection(
-    socket: Socket,
-    io: Server,
-    connectedClients: Map<string, boolean>
-) {
-    const clientIp = socket.handshake.address;
+function onConnection(socket: Socket, io: Server) {
+    manageEventLogsScanning(io.sockets.sockets.size);
 
-    if (connectedClients.has(clientIp)) {
-        socket.disconnect();
-    } else {
-        connectedClients.set(clientIp, true);
-
+    socket.on(constant.EVENT.TRANSACTIONS_HISTORY, async (args: Args) => {
+        await onTransactionsHistory(socket, args);
+    });
+    socket.on(constant.EVENT.DISCONNECT, () => {
         manageEventLogsScanning(io.sockets.sockets.size);
-
-        socket.on(constant.EVENT.TRANSACTIONS_HISTORY, (args: Args) => {
-            onTransactionsHistory(socket, args);
-        });
-        socket.on(constant.EVENT.DISCONNECT, () => {
-            manageEventLogsScanning(io.sockets.sockets.size);
-            getTransactionsHistorySocketStateActions(
-                socket.id
-            ).clearSocketState();
-            connectedClients.delete(clientIp);
-        });
-    }
+        getTransactionsHistorySocketStateActions(socket.id).clearSocketState();
+    });
 }
 
 export { onConnection };

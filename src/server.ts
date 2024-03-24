@@ -21,10 +21,8 @@ const io = new Server(server, {
     },
 });
 
-const connectedClients = new Map();
-
 io.on(constant.EVENT.CONNECTION, (socket) => {
-    onConnection(socket, io, connectedClients);
+    onConnection(socket, io);
 });
 
 const required_options = [
