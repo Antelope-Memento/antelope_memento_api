@@ -283,11 +283,6 @@ async function emitTraceTransactions(
     }
 ) {
     const { setSocketState } = getSocketStateActions(socket.id);
-    console.log('trace transactions executed with filters:', {
-        accounts,
-        fromBlock,
-        toBlock,
-    });
 
     const transactionsHistory = await db.ExecuteQueryAsync(
         getTransactionsQuery({
@@ -296,7 +291,6 @@ async function emitTraceTransactions(
             toBlock,
         })
     );
-    console.log('transactionsHistory:', transactionsHistory[0]);
 
     if (isNotEmptyArray(transactionsHistory)) {
         const lastTransactionBlockNum = transactionsHistory[0].block_num;
@@ -315,12 +309,6 @@ async function emitForkTransactions(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
-    console.log('fork transactions executed with filters:', {
-        accounts,
-    });
-
-    console.log('state.eventLogs.data:', state.eventLogs.data);
-
     socket.emit(
         EVENT.TRANSACTIONS_HISTORY,
         formatTransactions(state.eventLogs.data, 'fork', accounts)
