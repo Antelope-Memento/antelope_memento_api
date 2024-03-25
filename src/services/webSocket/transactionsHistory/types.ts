@@ -12,9 +12,9 @@ export interface State {
     };
     forks: {
         data: ForkTransactionEntity[];
-        lastForkId: number;
+        lastForkId: number | null;
+        intervalId: NodeJS.Timeout | null;
     };
-    forksIntervalId: NodeJS.Timeout | null;
 }
 
 export interface SocketState {

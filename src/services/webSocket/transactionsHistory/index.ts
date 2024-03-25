@@ -29,14 +29,13 @@ const FORK_TRANSACTIONS_SCAN_INTERVAL_TIME = 500; // Time in milliseconds to sca
 
 const state: State = {
     sockets: {},
-    forks: { data: [], lastForkId: 0 }, // forks.data represents the fork transactions, which this service will scan and emit to the clients when requested
-    forksIntervalId: null,
+    forks: { data: [], lastForkId: null, intervalId: null }, // forks.data represents the fork transactions, which this service will scan and emit to the clients when requested
 };
 
 function manageForkTransactionsScanning(connectionsCount: number) {
-    if (connectionsCount > 0 && !state.forksIntervalId) {
+    if (connectionsCount > 0 && !state.forks.intervalId) {
         // start scanning the fork transactions if there are active socket connections
-        state.forksIntervalId = setInterval(async () => {
+        state.forks.intervalId = setInterval(async () => {
             try {
                 await scanForkTransactions();
             } catch (error) {
@@ -44,10 +43,11 @@ function manageForkTransactionsScanning(connectionsCount: number) {
             }
         }, FORK_TRANSACTIONS_SCAN_INTERVAL_TIME);
     }
-    if (!connectionsCount && state.forksIntervalId) {
-        // stop scanning the fork transactions if there are no active socket connections
-        clearInterval(state.forksIntervalId);
-        state.forksIntervalId = null;
+    if (!connectionsCount && state.forks.intervalId) {
+        // stop scanning the fork transactions and clear the fork state
+        // if there are no active socket connections
+        clearInterval(state.forks.intervalId);
+        state.forks = { data: [], lastForkId: null, intervalId: null };
     }
 }
 
@@ -71,8 +71,9 @@ async function scanForkTransactions() {
 
     if (isNotEmptyArray(forks)) {
         state.forks = {
+            ...state.forks,
             data: forks,
-            lastForkId: forks[0]?.id,
+            lastForkId: forks[0].id,
         };
     }
 }
