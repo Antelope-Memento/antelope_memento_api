@@ -300,8 +300,9 @@ HEALTHY_SYNC_TIME_DIFF = 15000
 API_PATH_PREFIX = wax
 CPU_CORES = 4
 MAX_RECORD_COUNT = 100
-MAX_WS_TRANSACTIONS_COUNT = 1000
-MAX_WS_EVENT_LOGS_COUNT = 100
+WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100
+WS_TRACE_TRANSACTIONS_LIMIT = 100
+WS_FORK_TRANSACTIONS_LIMIT = 100
 
 EOT
 
@@ -323,8 +324,9 @@ HEALTHY_SYNC_TIME_DIFF = 15000
 API_PATH_PREFIX = waxpg
 CPU_CORES = 4
 MAX_RECORD_COUNT = 100
-MAX_WS_TRANSACTIONS_COUNT = 1000
-MAX_WS_EVENT_LOGS_COUNT = 100
+WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100
+WS_TRACE_TRANSACTIONS_LIMIT = 100
+WS_FORK_TRANSACTIONS_LIMIT = 100
 
 EOT
 
@@ -358,8 +360,10 @@ API_PATH_PREFIX = wax           // API path prefix wax, eos, tlos
 CPU_CORES = 2   // number of cpu cores, value should not exceed max number of cores available in the system
 
 MAX_RECORD_COUNT = 10  // maximum number of records that can be returned in a single request
-MAX_WS_TRANSACTIONS_COUNT = 1000 // maximum number of transaction records which can be emitted by websocket
-MAX_WS_EVENT_LOGS_COUNT = 100 // maximum number of event_log records which can be emitted by websocket
+
+WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100 // maximum number of blocks threshold for which transactions will be emitted from websocket
+WS_TRACE_TRANSACTIONS_LIMIT = 100 // maximum number of irreversible transactions which can be emitted from websocket
+WS_FORK_TRANSACTIONS_LIMIT = 100 // maximum number of reversible transactions which can be emitted from websocket
 
 ```
 

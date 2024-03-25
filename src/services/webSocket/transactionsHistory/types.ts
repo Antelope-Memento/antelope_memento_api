@@ -1,16 +1,20 @@
 export type SocketId = string;
 
+/**
+ * - 'trace' - transactions that cannot be reverted
+ * - 'fork' - transactions that can be reverted
+ */
 export type TransactionType = 'trace' | 'fork';
 
 export interface State {
     sockets: {
         [key: SocketId]: SocketState;
     };
-    eventLogs: {
-        data: EventLogEntity[];
-        lastEventLogId: number;
+    forks: {
+        data: ForkTransactionEntity[];
+        lastForkId: number;
     };
-    eventLogsIntervalId: NodeJS.Timeout | null;
+    forksIntervalId: NodeJS.Timeout | null;
 }
 
 export interface SocketState {
@@ -25,13 +29,13 @@ export interface Args {
     irreversible?: boolean;
 }
 
-export interface EventLogEntity {
+export interface ForkTransactionEntity {
     id: number;
     block_num: number;
     trace: Buffer;
 }
 
-export interface TransactionEntity {
+export interface TraceTransactionEntity {
     block_num: number;
     trace: Buffer;
 }

@@ -5,8 +5,8 @@ import {
     TransactionType,
     Args,
     SocketState,
-    EventLogEntity,
-    TransactionEntity,
+    ForkTransactionEntity,
+    TraceTransactionEntity,
 } from './types';
 
 import db from '../../../utilities/db'; // @TODO: add typescript to DB configuration
@@ -17,61 +17,62 @@ import {
     isNotEmptyArrayOfAccounts,
 } from '../../../utilities/helpers';
 
-// const TRANSACTIONS_LIMIT = Number(process.env.MAX_WS_TRANSACTIONS_COUNT) ?? 100;
-const EVENT_LOGS_LIMIT = Number(process.env.MAX_WS_EVENT_LOGS_COUNT) ?? 100;
-
-const TRACE_TRANSACTIONS_LIMIT = 100;
-const MAX_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100;
+const TRACE_TRANSACTIONS_BLOCKS_THRESHOLD =
+    Number(process.env.WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD) ?? 100;
+const TRACE_TRANSACTIONS_LIMIT =
+    Number(process.env.WS_TRACE_TRANSACTIONS_LIMIT) ?? 100;
+const FORK_TRANSACTIONS_LIMIT =
+    Number(process.env.WS_FORK_TRANSACTIONS_LIMIT) ?? 100;
 
 const EMIT_INTERVAL_TIME = 1000; // Time in milliseconds to emit transactions_history event
-const EVENT_LOGS_SCAN_INTERVAL_TIME = 500; // Time in milliseconds to scan the EVENT_LOG table
+const FORK_TRANSACTIONS_SCAN_INTERVAL_TIME = 500; // Time in milliseconds to scan the fork transactions
 
 const state: State = {
     sockets: {},
-    eventLogs: { data: [], lastEventLogId: 0 },
-    eventLogsIntervalId: null,
+    forks: { data: [], lastForkId: 0 }, // forks.data represents the fork transactions, which this service will scan and emit to the clients when requested
+    forksIntervalId: null,
 };
 
-function manageEventLogsScanning(connectionsCount: number) {
-    if (connectionsCount > 0 && !state.eventLogsIntervalId) {
-        // start scanning the event logs if there are active socket connections
-        state.eventLogsIntervalId = setInterval(async () => {
+function manageForkTransactionsScanning(connectionsCount: number) {
+    if (connectionsCount > 0 && !state.forksIntervalId) {
+        // start scanning the fork transactions if there are active socket connections
+        state.forksIntervalId = setInterval(async () => {
             try {
-                await scanEventLogs();
+                await scanForkTransactions();
             } catch (error) {
-                console.error('error scanning event logs:', error);
+                console.error('error scanning fork transactions:', error);
             }
-        }, EVENT_LOGS_SCAN_INTERVAL_TIME);
+        }, FORK_TRANSACTIONS_SCAN_INTERVAL_TIME);
     }
-    if (!connectionsCount && state.eventLogsIntervalId) {
-        // stop scanning the event logs if there are no active socket connections
-        clearInterval(state.eventLogsIntervalId);
-        state.eventLogsIntervalId = null;
+    if (!connectionsCount && state.forksIntervalId) {
+        // stop scanning the fork transactions if there are no active socket connections
+        clearInterval(state.forksIntervalId);
+        state.forksIntervalId = null;
     }
 }
 
-// scan the event logs and save them to the state
-async function scanEventLogs() {
+// scan the fork transactions and save them to the state
+async function scanForkTransactions() {
     let fromId: number;
 
-    if (!state.eventLogs.lastEventLogId) {
+    if (!state.forks.lastForkId) {
         const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
-        const fromEventLog = await getEventLogByBlockNum(lastIrreversibleBlock);
+        const from = await getForkTransactionByBlockNum(lastIrreversibleBlock);
 
-        fromId = fromEventLog[0][(db as any).is_mysql ? 'MAX(id)' : 'max'];
+        fromId = from[0][(db as any).is_mysql ? 'MAX(id)' : 'max'];
     } else {
-        fromId = state.eventLogs.lastEventLogId;
+        fromId = state.forks.lastForkId;
     }
 
-    const eventLogs = await getEventLogs({
+    const forks = await getForkTransactions({
         fromId,
-        toId: Number(fromId) + EVENT_LOGS_LIMIT,
+        toId: Number(fromId) + FORK_TRANSACTIONS_LIMIT,
     });
 
-    if (isNotEmptyArray(eventLogs)) {
-        state.eventLogs = {
-            data: eventLogs,
-            lastEventLogId: eventLogs[0]?.id,
+    if (isNotEmptyArray(forks)) {
+        state.forks = {
+            data: forks,
+            lastForkId: forks[0]?.id,
         };
     }
 }
@@ -257,7 +258,7 @@ async function emitTransactionsBasedOnType({
             const count = await getTraceTransactionsCount({
                 accounts,
                 fromBlock: startBlock,
-                toBlock: startBlock + MAX_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD,
+                toBlock: startBlock + TRACE_TRANSACTIONS_BLOCKS_THRESHOLD,
             });
 
             const threshold = calculateTraceTxsBlockThreshold(
@@ -301,11 +302,6 @@ async function emitTraceTransactions(
     }
 ) {
     const { setSocketState } = getSocketStateActions(socket.id);
-    // console.log('trace transactions executed with filters:', {
-    //     accounts,
-    //     fromBlock,
-    //     toBlock,
-    // });
 
     const transactionsHistory = await getTraceTransactions({
         accounts,
@@ -330,13 +326,9 @@ async function emitForkTransactions(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
-    // console.log('fork transactions executed with filters:', {
-    //     accounts,
-    // });
-
     socket.emit(
         EVENT.TRANSACTIONS_HISTORY,
-        formatTransactions(state.eventLogs.data, 'fork', accounts)
+        formatTransactions(state.forks.data, 'fork', accounts)
     );
 }
 
@@ -377,7 +369,7 @@ function validateArgs(args: Args) {
 }
 
 function formatTransactions(
-    transactions: (EventLogEntity | TransactionEntity)[],
+    transactions: (ForkTransactionEntity | TraceTransactionEntity)[],
     type: TransactionType,
     accounts: string[]
 ) {
@@ -406,7 +398,7 @@ async function getTraceTransactions({
     accounts: Args['accounts'];
     fromBlock: number;
     toBlock: number;
-}) {
+}): Promise<TraceTransactionEntity[]> {
     return db.ExecuteQueryAsync(`
         SELECT ${(db as any).is_mysql ? '' : 'R.'}block_num, trace
         FROM (
@@ -420,21 +412,21 @@ async function getTraceTransactions({
         INNER JOIN TRANSACTIONS ON R.seq = TRANSACTIONS.seq
     `);
 }
-async function getEventLogByBlockNum(blockNum: number) {
+async function getForkTransactionByBlockNum(blockNum: number) {
     return db.ExecuteQueryAsync(`
         SELECT MAX(id) 
         FROM EVENT_LOG 
-        where block_num = '${blockNum}'
+        where block_num = '${blockNum}' 
     `);
 }
 
-async function getEventLogs({
+async function getForkTransactions({
     fromId,
     toId,
 }: {
     fromId: number;
     toId: number;
-}) {
+}): Promise<ForkTransactionEntity[]> {
     return db.ExecuteQueryAsync(
         `
         SELECT id, block_num, data as trace
@@ -470,18 +462,21 @@ async function getTraceTransactionsCount({
 }
 
 function calculateTraceTxsBlockThreshold(count: number, startBlock: number) {
+    // The size of the chunk is determined as follows:
+    // we get the number of traces within the next 100 blocks(the number is configurable),
+    // and if it's more than 100 traces (configurable), the block range is reduced proportionally.
     if (count > TRACE_TRANSACTIONS_LIMIT) {
-        const ratio = count / MAX_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD;
+        const ratio = count / TRACE_TRANSACTIONS_BLOCKS_THRESHOLD;
         return Math.floor(
-            startBlock + (1 / ratio) * MAX_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD
+            startBlock + (1 / ratio) * TRACE_TRANSACTIONS_BLOCKS_THRESHOLD
         );
     }
 
-    return startBlock + MAX_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD;
+    return startBlock + TRACE_TRANSACTIONS_BLOCKS_THRESHOLD;
 }
 
 export {
     onTransactionsHistory,
     getSocketStateActions,
-    manageEventLogsScanning,
+    manageForkTransactionsScanning,
 };

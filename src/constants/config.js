@@ -35,5 +35,7 @@ module.exports = {
         INVALID_ACCOUNTS: 'Invalid accounts',
         INVALID_START_BLOCK: 'Invalid start_block',
         INVALID_IRREVERSIBLE: 'Invalid irreversible',
+        START_BLOCK_BEHIND_LAST_IRREVERSIBLE:
+            'start_block is behind the last irreversible block',
     },
 };
