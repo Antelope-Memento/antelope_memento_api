@@ -157,6 +157,8 @@ The API supports Web Sockets for real-time updates. We use socket.io for the Web
 Example of a client-side javascript code:
 
 ```javascript
+import { io } from 'socket.io-client';
+
 const socket = io('https://memento.eu.eosamsterdam.net/wax');
 
 socket.on('connect', () => {
