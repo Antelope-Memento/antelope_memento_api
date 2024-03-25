@@ -17,8 +17,11 @@ import {
     isNotEmptyArrayOfAccounts,
 } from '../../../utilities/helpers';
 
-const TRANSACTIONS_LIMIT = Number(process.env.MAX_WS_TRANSACTIONS_COUNT) ?? 100;
+// const TRANSACTIONS_LIMIT = Number(process.env.MAX_WS_TRANSACTIONS_COUNT) ?? 100;
 const EVENT_LOGS_LIMIT = Number(process.env.MAX_WS_EVENT_LOGS_COUNT) ?? 100;
+
+const TRACE_TRANSACTIONS_LIMIT = 100;
+const MAX_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100;
 
 const EMIT_INTERVAL_TIME = 1000; // Time in milliseconds to emit transactions_history event
 const EVENT_LOGS_SCAN_INTERVAL_TIME = 500; // Time in milliseconds to scan the EVENT_LOG table
@@ -53,21 +56,17 @@ async function scanEventLogs() {
 
     if (!state.eventLogs.lastEventLogId) {
         const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
-        const fromEventLog = await db.ExecuteQueryAsync(
-            getEventLogQuery(lastIrreversibleBlock)
-        );
+        const fromEventLog = await getEventLogByBlockNum(lastIrreversibleBlock);
 
         fromId = fromEventLog[0][(db as any).is_mysql ? 'MAX(id)' : 'max'];
     } else {
         fromId = state.eventLogs.lastEventLogId;
     }
 
-    const eventLogs = await db.ExecuteQueryAsync(
-        getEventLogsQuery({
-            fromId,
-            toId: Number(fromId) + EVENT_LOGS_LIMIT,
-        })
-    );
+    const eventLogs = await getEventLogs({
+        fromId,
+        toId: Number(fromId) + EVENT_LOGS_LIMIT,
+    });
 
     if (isNotEmptyArray(eventLogs)) {
         state.eventLogs = {
@@ -238,7 +237,7 @@ function shouldSwitchToForkType({
     );
 }
 
-function emitTransactionsBasedOnType({
+async function emitTransactionsBasedOnType({
     transactionType,
     socket,
     accounts,
@@ -255,12 +254,20 @@ function emitTransactionsBasedOnType({
 }) {
     switch (transactionType) {
         case 'trace': {
+            const count = await getTraceTransactionsCount({
+                accounts,
+                fromBlock: startBlock,
+                toBlock: startBlock + MAX_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD,
+            });
+
+            const threshold = calculateTraceTxsBlockThreshold(
+                count,
+                startBlock
+            );
+
             const toBlock = irreversible
-                ? Math.min(
-                      startBlock + TRANSACTIONS_LIMIT,
-                      lastIrreversibleBlock
-                  )
-                : startBlock + TRANSACTIONS_LIMIT;
+                ? Math.min(threshold, lastIrreversibleBlock)
+                : threshold;
 
             const shouldExecute =
                 startBlock < toBlock && lastIrreversibleBlock !== startBlock;
@@ -300,13 +307,11 @@ async function emitTraceTransactions(
     //     toBlock,
     // });
 
-    const transactionsHistory = await db.ExecuteQueryAsync(
-        getTransactionsQuery({
-            accounts,
-            fromBlock,
-            toBlock,
-        })
-    );
+    const transactionsHistory = await getTraceTransactions({
+        accounts,
+        fromBlock,
+        toBlock,
+    });
 
     if (isNotEmptyArray(transactionsHistory)) {
         const lastTransactionBlockNum = transactionsHistory[0].block_num;
@@ -393,7 +398,7 @@ function formatTransactions(
         : parsedTraces;
 }
 
-function getTransactionsQuery({
+async function getTraceTransactions({
     accounts,
     fromBlock,
     toBlock,
@@ -402,7 +407,7 @@ function getTransactionsQuery({
     fromBlock: number;
     toBlock: number;
 }) {
-    return `
+    return db.ExecuteQueryAsync(`
         SELECT ${(db as any).is_mysql ? '' : 'R.'}block_num, trace
         FROM (
             SELECT DISTINCT seq${(db as any).is_mysql ? '' : ', block_num'}
@@ -411,27 +416,68 @@ function getTransactionsQuery({
             AND block_num >= '${fromBlock}'
             AND block_num <= '${toBlock}'
             ORDER BY block_num DESC
-            LIMIT ${TRANSACTIONS_LIMIT}
         ) AS R
         INNER JOIN TRANSACTIONS ON R.seq = TRANSACTIONS.seq
-    `;
+    `);
 }
-function getEventLogQuery(blockNum: number) {
-    return `
+async function getEventLogByBlockNum(blockNum: number) {
+    return db.ExecuteQueryAsync(`
         SELECT MAX(id) 
         FROM EVENT_LOG 
         where block_num = '${blockNum}'
-    `;
+    `);
 }
 
-function getEventLogsQuery({ fromId, toId }: { fromId: number; toId: number }) {
-    return `
+async function getEventLogs({
+    fromId,
+    toId,
+}: {
+    fromId: number;
+    toId: number;
+}) {
+    return db.ExecuteQueryAsync(
+        `
         SELECT id, block_num, data as trace
         FROM EVENT_LOG
         WHERE id > '${fromId}'
         AND id <= '${toId}'
         ORDER BY id DESC
-    `;
+    `
+    );
+}
+
+async function getTraceTransactionsCount({
+    accounts,
+    fromBlock,
+    toBlock,
+}: {
+    accounts: Args['accounts'];
+    fromBlock: number;
+    toBlock: number;
+}) {
+    const count = await db.ExecuteQueryAsync(
+        `
+        SELECT COUNT(DISTINCT seq)
+        FROM RECEIPTS
+        WHERE receiver IN (${accounts.map((account) => `'${account}'`).join()})
+        AND block_num >= '${fromBlock}'
+        AND block_num < '${toBlock}'
+    `
+    );
+    return (db as any).is_mysql
+        ? count[0]['COUNT(DISTINCT seq)']
+        : count[0].count;
+}
+
+function calculateTraceTxsBlockThreshold(count: number, startBlock: number) {
+    if (count > TRACE_TRANSACTIONS_LIMIT) {
+        const ratio = count / MAX_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD;
+        return Math.floor(
+            startBlock + (1 / ratio) * MAX_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD
+        );
+    }
+
+    return startBlock + MAX_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD;
 }
 
 export {
