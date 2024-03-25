@@ -83,7 +83,7 @@ function getSocketStateActions(socketId: SocketId) {
             state.sockets[socketId] = {
                 intervalId: null,
                 lastTransactionBlockNum: 0,
-                transactionType: null,
+                transactionType: 'fork',
             };
         },
         getSocketState: () => state.sockets[socketId],
@@ -94,7 +94,7 @@ function getSocketStateActions(socketId: SocketId) {
             };
         },
         clearSocketState: () => {
-            const interval = state.sockets[socketId].intervalId;
+            const interval = state.sockets[socketId]?.intervalId;
             if (interval) {
                 clearInterval(interval);
             }
@@ -178,10 +178,14 @@ async function emitTransactionsHistory(
         setSocketState({
             transactionType: 'trace',
         });
-    } else if (shouldSwitchToFork) {
+        return;
+    }
+
+    if (shouldSwitchToFork) {
         setSocketState({
             transactionType: 'fork',
         });
+        return;
     }
 
     emitTransactionsBasedOnType({
@@ -205,7 +209,7 @@ function shouldSwitchToTraceType({
     startBlock: number;
     lastIrreversibleBlock: number;
     irreversible: Args['irreversible'];
-    transactionType: string | null;
+    transactionType: TransactionType;
 }) {
     return (
         ((start_block && startBlock < Number(lastIrreversibleBlock)) ||
@@ -225,7 +229,7 @@ function shouldSwitchToForkType({
     lastIrreversibleBlock: number;
     start_block?: Args['start_block'];
     irreversible: Args['irreversible'];
-    transactionType: TransactionType | null;
+    transactionType: TransactionType;
 }) {
     return (
         (lastTransactionBlockNum >= lastIrreversibleBlock || !start_block) &&
@@ -242,31 +246,38 @@ function emitTransactionsBasedOnType({
     lastIrreversibleBlock,
     irreversible,
 }: {
-    transactionType: TransactionType | null;
+    transactionType: TransactionType;
     socket: Socket;
     accounts: Args['accounts'];
     startBlock: number;
     lastIrreversibleBlock: number;
     irreversible: Args['irreversible'];
 }) {
-    if (transactionType === 'trace') {
-        const shouldExecute = lastIrreversibleBlock !== startBlock;
-
-        if (shouldExecute) {
+    switch (transactionType) {
+        case 'trace': {
             const toBlock = irreversible
                 ? Math.min(
                       startBlock + TRANSACTIONS_LIMIT,
                       lastIrreversibleBlock
                   )
                 : startBlock + TRANSACTIONS_LIMIT;
-            emitTraceTransactions(socket, {
-                accounts,
-                fromBlock: startBlock,
-                toBlock,
-            });
+
+            const shouldExecute =
+                startBlock < toBlock && lastIrreversibleBlock !== startBlock;
+
+            if (shouldExecute) {
+                emitTraceTransactions(socket, {
+                    accounts,
+                    fromBlock: startBlock,
+                    toBlock,
+                });
+            }
+            break;
         }
-    } else if (transactionType === 'fork') {
-        emitForkTransactions(socket, { accounts });
+        case 'fork': {
+            emitForkTransactions(socket, { accounts });
+            break;
+        }
     }
 }
 
@@ -283,6 +294,11 @@ async function emitTraceTransactions(
     }
 ) {
     const { setSocketState } = getSocketStateActions(socket.id);
+    // console.log('trace transactions executed with filters:', {
+    //     accounts,
+    //     fromBlock,
+    //     toBlock,
+    // });
 
     const transactionsHistory = await db.ExecuteQueryAsync(
         getTransactionsQuery({
@@ -309,6 +325,10 @@ async function emitForkTransactions(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
+    // console.log('fork transactions executed with filters:', {
+    //     accounts,
+    // });
+
     socket.emit(
         EVENT.TRANSACTIONS_HISTORY,
         formatTransactions(state.eventLogs.data, 'fork', accounts)
@@ -338,6 +358,11 @@ function validateArgs(args: Args) {
             return {
                 valid: false,
                 message: EVENT_ERRORS.INVALID_IRREVERSIBLE,
+            };
+        case irreversible && !start_block:
+            return {
+                valid: false,
+                message: EVENT_ERRORS.START_BLOCK_BEHIND_LAST_IRREVERSIBLE,
             };
         default:
             return {

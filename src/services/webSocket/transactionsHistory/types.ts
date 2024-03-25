@@ -16,7 +16,7 @@ export interface State {
 export interface SocketState {
     intervalId: NodeJS.Timeout | null;
     lastTransactionBlockNum: number;
-    transactionType: TransactionType | null;
+    transactionType: TransactionType;
 }
 
 export interface Args {
