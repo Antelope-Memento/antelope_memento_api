@@ -19,6 +19,7 @@ const io = new Server(server, {
     cors: {
         origin: '*',
     },
+    path: `/${process.env.API_PATH_PREFIX}`,
 });
 
 io.on(constant.EVENT.CONNECTION, (socket) => {
