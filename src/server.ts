@@ -20,6 +20,7 @@ const io = new Server(server, {
         origin: '*',
     },
     path: `/${process.env.API_PATH_PREFIX}`,
+    transports: ['websocket'],
 });
 
 io.on(constant.EVENT.CONNECTION, (socket) => {
