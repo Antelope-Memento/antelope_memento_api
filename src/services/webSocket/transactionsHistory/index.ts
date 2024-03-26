@@ -26,33 +26,44 @@ const FORK_TRANSACTIONS_LIMIT =
     Number(process.env.WS_FORK_TRANSACTIONS_LIMIT) ?? 100;
 
 const EMIT_INTERVAL_TIME = 1000; // Time in milliseconds to emit transactions_history event
-const FORK_TRANSACTIONS_SCAN_INTERVAL_TIME = 500; // Time in milliseconds to scan the fork transactions
+const FORK_TRANSACTIONS_WRITING_INTERVAL_TIME = 500; // Time in milliseconds to write the fork transactions
 
 const state: State = {
     connectedSockets: {},
-    forks: { data: [], lastForkId: null, intervalId: null }, // forks.data represents the fork transactions, which this service will scan and emit to the clients when requested
+    forks: { data: [], lastForkId: null, intervalId: null }, // forks.data represents the fork transactions, which this service will write and emit to the clients when requested
 };
 
-function manageForkTransactionsScanning(connectionsCount: number) {
-    if (connectionsCount > 0 && !state.forks.intervalId) {
-        // start scanning the fork transactions if there are active socket connections
+function manageForkTransactionsWriting(connectionsCount: number) {
+    const shouldWrite = connectionsCount > 0 && !state.forks.intervalId;
+
+    // start writing the fork transactions if there are active socket connections
+    if (shouldWrite) {
         state.forks.intervalId = setInterval(async () => {
+            if (
+                // check for any active socket connections with 'fork' transaction type
+                !Object.values(state.connectedSockets).find(
+                    ({ transactionType }) => transactionType === 'fork'
+                )
+            ) {
+                return;
+            }
+
             try {
                 await writeForkTransactions();
             } catch (error) {
-                console.error('error scanning fork transactions:', error);
+                console.error('error writing fork transactions:', error);
             }
-        }, FORK_TRANSACTIONS_SCAN_INTERVAL_TIME);
+        }, FORK_TRANSACTIONS_WRITING_INTERVAL_TIME);
     }
     if (!connectionsCount && state.forks.intervalId) {
-        // stop scanning the fork transactions and clear the fork state
+        // stop writing the fork transactions and clear the fork state
         // if there are no active socket connections
         clearInterval(state.forks.intervalId);
         state.forks = { data: [], lastForkId: null, intervalId: null };
     }
 }
 
-// scan the fork transactions and save them to the state
+// write the fork transactions and save them to the state
 async function writeForkTransactions() {
     let fromId: number;
 
@@ -81,11 +92,11 @@ async function writeForkTransactions() {
 
 function getSocketStateActions(socketId: SocketId) {
     return {
-        initializeSocketState: (): void => {
+        initializeSocketState: (irreversible?: boolean): void => {
             state.connectedSockets[socketId] = {
                 intervalId: null,
                 lastTransactionBlockNum: 0,
-                transactionType: 'fork',
+                transactionType: irreversible ? 'trace' : 'fork',
             };
         },
         getSocketState: () => state.connectedSockets[socketId],
@@ -128,7 +139,7 @@ function onTransactionsHistory(socket: Socket, args: Args) {
 
     // initialize the state for the socket connection (only once per connection)
     if (!getSocketState()) {
-        initializeSocketState();
+        initializeSocketState(args?.irreversible);
     }
 
     // send the transactions history to the client every EMIT_INTERVAL_TIME milliseconds
@@ -493,5 +504,5 @@ function calculateTraceTxsBlockThreshold(count: number, startBlock: number) {
 export {
     onTransactionsHistory,
     getSocketStateActions,
-    manageForkTransactionsScanning,
+    manageForkTransactionsWriting,
 };
