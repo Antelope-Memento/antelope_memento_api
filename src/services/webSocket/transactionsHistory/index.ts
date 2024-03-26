@@ -9,13 +9,14 @@ import {
     TraceTransactionEntity,
 } from './types';
 
-import db from '../../../utilities/db'; // @TODO: add typescript to DB configuration
+import db from '../../../utilities/db'; // @TODO: add typescript to DB configuration and remove `any` from the code below
 import { EVENT, EVENT_ERRORS } from '../../../constants/config';
 import {
     isNumber,
-    isNotEmptyArray,
-    isNotEmptyArrayOfAccounts,
+    isNonEmptyArray,
+    isNonEmptyArrayOfAccounts,
 } from '../../../utilities/helpers';
+import { assert } from 'ts-essentials';
 
 const TRACE_TRANSACTIONS_BLOCKS_THRESHOLD =
     Number(process.env.WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD) ?? 100;
@@ -28,7 +29,7 @@ const EMIT_INTERVAL_TIME = 1000; // Time in milliseconds to emit transactions_hi
 const FORK_TRANSACTIONS_SCAN_INTERVAL_TIME = 500; // Time in milliseconds to scan the fork transactions
 
 const state: State = {
-    sockets: {},
+    connectedSockets: {},
     forks: { data: [], lastForkId: null, intervalId: null }, // forks.data represents the fork transactions, which this service will scan and emit to the clients when requested
 };
 
@@ -69,7 +70,7 @@ async function scanForkTransactions() {
         toId: Number(fromId) + FORK_TRANSACTIONS_LIMIT,
     });
 
-    if (isNotEmptyArray(forks)) {
+    if (isNonEmptyArray(forks)) {
         state.forks = {
             ...state.forks,
             data: forks,
@@ -80,35 +81,36 @@ async function scanForkTransactions() {
 
 function getSocketStateActions(socketId: SocketId) {
     return {
-        initializeSocketState: () => {
-            state.sockets[socketId] = {
+        initializeSocketState: (): void => {
+            state.connectedSockets[socketId] = {
                 intervalId: null,
                 lastTransactionBlockNum: 0,
                 transactionType: 'fork',
             };
         },
-        getSocketState: () => state.sockets[socketId],
-        setSocketState: (newState: Partial<SocketState>) => {
-            state.sockets[socketId] = {
-                ...state.sockets[socketId],
-                ...newState,
+        getSocketState: () => state.connectedSockets[socketId],
+        setSocketState: (updatedState: Partial<SocketState>): void => {
+            const prevState = state.connectedSockets[socketId];
+            assert(prevState, 'setSocketState: socket state not found');
+            state.connectedSockets[socketId] = {
+                ...prevState,
+                ...updatedState,
             };
         },
-        clearSocketState: () => {
-            const interval = state.sockets[socketId]?.intervalId;
+        clearSocketState: (): void => {
+            const interval = state.connectedSockets[socketId]?.intervalId;
             if (interval) {
                 clearInterval(interval);
             }
 
-            const socketState = state.sockets[socketId];
-            if (socketState) {
-                delete state.sockets[socketId];
+            if (state.connectedSockets[socketId]) {
+                delete state.connectedSockets[socketId];
             }
         },
     };
 }
 
-async function onTransactionsHistory(socket: Socket, args: Args) {
+function onTransactionsHistory(socket: Socket, args: Args) {
     const { valid, message } = validateArgs(args);
 
     if (!valid) {
@@ -125,12 +127,14 @@ async function onTransactionsHistory(socket: Socket, args: Args) {
     if (!getSocketState()) {
         initializeSocketState();
     }
+    const state = getSocketState();
+    assert(state, 'onTransactionsHistory: socket state not found');
 
     // send the transactions history to the client every EMIT_INTERVAL_TIME milliseconds
     setSocketState({
         intervalId: setInterval(async () => {
             try {
-                await emitTransactionsHistory(socket, args);
+                emitTransactionsHistory(socket, args, state);
             } catch (error) {
                 console.error('error emitting transactions history:', error);
             }
@@ -140,10 +144,10 @@ async function onTransactionsHistory(socket: Socket, args: Args) {
 
 async function emitTransactionsHistory(
     socket: Socket,
-    { accounts, start_block, irreversible = false }: Args
+    { accounts, start_block, irreversible = false }: Args,
+    { lastTransactionBlockNum, transactionType }: SocketState
 ) {
-    const { setSocketState, getSocketState } = getSocketStateActions(socket.id);
-    const { lastTransactionBlockNum, transactionType } = getSocketState();
+    const { setSocketState } = getSocketStateActions(socket.id);
 
     const headBlock = await db.GetLastSyncedBlockNumber();
     const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
@@ -310,7 +314,7 @@ async function emitTraceTransactions(
         toBlock,
     });
 
-    if (isNotEmptyArray(transactionsHistory)) {
+    if (isNonEmptyArray(transactionsHistory)) {
         const lastTransactionBlockNum = transactionsHistory[0].block_num;
         setSocketState({
             lastTransactionBlockNum: Number(lastTransactionBlockNum),
@@ -342,7 +346,7 @@ function validateArgs(args: Args) {
                 valid: false,
                 message: EVENT_ERRORS.INVALID_ARGS,
             };
-        case !isNotEmptyArrayOfAccounts(accounts):
+        case !isNonEmptyArrayOfAccounts(accounts):
             return {
                 valid: false,
                 message: EVENT_ERRORS.INVALID_ACCOUNTS,

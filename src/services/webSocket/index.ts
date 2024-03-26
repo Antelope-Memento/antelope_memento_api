@@ -8,10 +8,13 @@ import {
 import { Args } from './transactionsHistory/types';
 
 function onConnection(socket: Socket, io: Server) {
+    // The connection serves only one request at a time.
+    // A subsequent call on startStreaming will cancel the previous streaming request in this socket.
+    // @TODO: somehow identify the client and cancel the previous connection if the client is the same.
     manageForkTransactionsScanning(io.sockets.sockets.size);
 
-    socket.on(constant.EVENT.TRANSACTIONS_HISTORY, async (args: Args) => {
-        await onTransactionsHistory(socket, args);
+    socket.on(constant.EVENT.TRANSACTIONS_HISTORY, (args: Args) => {
+        onTransactionsHistory(socket, args);
     });
     socket.on(constant.EVENT.DISCONNECT, () => {
         manageForkTransactionsScanning(io.sockets.sockets.size);

@@ -7,7 +7,7 @@ export type SocketId = string;
 export type TransactionType = 'trace' | 'fork';
 
 export interface State {
-    sockets: {
+    connectedSockets: {
         [key: SocketId]: SocketState;
     };
     forks: {

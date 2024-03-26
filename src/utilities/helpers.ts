@@ -13,12 +13,14 @@ function isAccount(account: string): boolean {
     return nameRegex.test(account);
 }
 
-function isNotEmptyArray(array: unknown[]): boolean {
-    return Array.isArray(array) && array.length > 0;
+type NonEmptyArray<T> = [T, ...T[]];
+
+function isNonEmptyArray<T>(array: T[]): array is NonEmptyArray<T> {
+    return array.length > 0;
 }
 
-function isNotEmptyArrayOfAccounts(accounts: string[]): boolean {
-    return isNotEmptyArray(accounts) && accounts.every(isAccount);
+function isNonEmptyArrayOfAccounts(accounts: string[]): boolean {
+    return isNonEmptyArray(accounts) && accounts.every(isAccount);
 }
 
 function isDate(dateString: string): boolean {
@@ -40,8 +42,8 @@ function timestampToQuery(timestamp: string, isMysql: boolean): string {
 export {
     hasProperties,
     isAccount,
-    isNotEmptyArray,
-    isNotEmptyArrayOfAccounts,
+    isNonEmptyArray,
+    isNonEmptyArrayOfAccounts,
     isDate,
     isNumber,
     timestampToQuery,

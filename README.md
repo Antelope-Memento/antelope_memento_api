@@ -152,12 +152,12 @@ The following queries are supported:
 
 ## Web Sockets
 
-The API supports Web Sockets for real-time updates. We use socket.io for the Web Socket interface. The client can subscribe to the `transactions_history` event, which is emitted every second with the latest transactions data based on the filters provided.
+The API supports Web Sockets for real-time updates. We use socket.io for the Web Socket interface. The client can subscribe to the `transactions_history` event, which start emitting the transaction data based on the provided parameters.
 
 Example of a client-side javascript code:
 
 ```javascript
-import { io } from 'socket.io-client';
+import { io } from 'socket.io-client'; // npm i socket.io-client
 
 const socket = io('https://memento.eu.eosamsterdam.net/wax');
 
