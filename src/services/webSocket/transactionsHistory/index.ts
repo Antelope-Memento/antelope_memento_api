@@ -421,7 +421,7 @@ async function getTraceTransactions({
             FROM RECEIPTS
             WHERE receiver IN (${accounts.map((account) => `'${account}'`).join()})
             AND block_num >= '${fromBlock}'
-            AND block_num <= '${toBlock}'
+            AND block_num < '${toBlock}'
             ORDER BY block_num DESC
         ) AS R
         INNER JOIN TRANSACTIONS ON R.seq = TRANSACTIONS.seq
