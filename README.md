@@ -159,7 +159,10 @@ Example of a client-side javascript code:
 ```javascript
 import { io } from 'socket.io-client'; // npm i socket.io-client
 
-const socket = io('https://memento.eu.eosamsterdam.net/wax');
+const socket = io('https://memento-streaming-dev.binfra.one', {
+    path: '/wax',
+    transports: ['websocket'],
+});
 
 socket.on('connect', () => {
     console.log('connected to memento-api');
