@@ -38,7 +38,7 @@ function manageForkTransactionsScanning(connectionsCount: number) {
         // start scanning the fork transactions if there are active socket connections
         state.forks.intervalId = setInterval(async () => {
             try {
-                await scanForkTransactions();
+                await writeForkTransactions();
             } catch (error) {
                 console.error('error scanning fork transactions:', error);
             }
@@ -53,7 +53,7 @@ function manageForkTransactionsScanning(connectionsCount: number) {
 }
 
 // scan the fork transactions and save them to the state
-async function scanForkTransactions() {
+async function writeForkTransactions() {
     let fromId: number;
 
     if (!state.forks.lastForkId) {
@@ -91,7 +91,10 @@ function getSocketStateActions(socketId: SocketId) {
         getSocketState: () => state.connectedSockets[socketId],
         setSocketState: (updatedState: Partial<SocketState>): void => {
             const prevState = state.connectedSockets[socketId];
-            assert(prevState, 'setSocketState: socket state not found');
+            assert(
+                prevState,
+                `setSocketState: socket state not found for socket ${socketId}`
+            );
             state.connectedSockets[socketId] = {
                 ...prevState,
                 ...updatedState,
@@ -127,14 +130,12 @@ function onTransactionsHistory(socket: Socket, args: Args) {
     if (!getSocketState()) {
         initializeSocketState();
     }
-    const state = getSocketState();
-    assert(state, 'onTransactionsHistory: socket state not found');
 
     // send the transactions history to the client every EMIT_INTERVAL_TIME milliseconds
     setSocketState({
         intervalId: setInterval(async () => {
             try {
-                emitTransactionsHistory(socket, args, state);
+                await emitTransactionsHistory(socket, args);
             } catch (error) {
                 console.error('error emitting transactions history:', error);
             }
@@ -144,13 +145,19 @@ function onTransactionsHistory(socket: Socket, args: Args) {
 
 async function emitTransactionsHistory(
     socket: Socket,
-    { accounts, start_block, irreversible = false }: Args,
-    { lastTransactionBlockNum, transactionType }: SocketState
+    { accounts, start_block, irreversible = false }: Args
 ) {
-    const { setSocketState } = getSocketStateActions(socket.id);
+    const { setSocketState, getSocketState } = getSocketStateActions(socket.id);
 
     const headBlock = await db.GetLastSyncedBlockNumber();
     const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
+
+    const state = getSocketState();
+    assert(
+        state,
+        `emitTransactionsHistory: socket state not found for socket: ${socket.id}`
+    );
+    const { lastTransactionBlockNum, transactionType } = state;
 
     const startBlock = Math.max(
         start_block ?? headBlock,
@@ -172,7 +179,6 @@ async function emitTransactionsHistory(
         irreversible,
         transactionType,
     });
-
     // If a client is too slow in consuming the stream,
     // the server should switch from head block back to scanning EVENT_LOG specifically for this client.
     // If the scanning delays behind the last irreversible block,
@@ -192,9 +198,7 @@ async function emitTransactionsHistory(
         });
         return;
     }
-
     emitTransactionsBasedOnType({
-        transactionType,
         socket,
         accounts,
         startBlock,
@@ -244,21 +248,27 @@ function shouldSwitchToForkType({
 }
 
 async function emitTransactionsBasedOnType({
-    transactionType,
     socket,
     accounts,
     startBlock,
     lastIrreversibleBlock,
     irreversible,
 }: {
-    transactionType: TransactionType;
     socket: Socket;
     accounts: Args['accounts'];
     startBlock: number;
     lastIrreversibleBlock: number;
     irreversible: Args['irreversible'];
 }) {
-    switch (transactionType) {
+    const { getSocketState } = getSocketStateActions(socket.id);
+
+    const state = getSocketState();
+    assert(
+        state,
+        `emitTransactionsBasedOnType: socket state not found for socket: ${socket.id}`
+    );
+
+    switch (state.transactionType) {
         case 'trace': {
             const count = await getTraceTransactionsCount({
                 accounts,
