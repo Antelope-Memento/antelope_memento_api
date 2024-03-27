@@ -21,8 +21,6 @@ export interface SocketState {
     args: Args;
     transactionType: TransactionType;
     lastTransactionBlockNum: number;
-    lastEmitTimestamp: number | null;
-    forceSwitch: boolean;
 }
 
 export interface Args {

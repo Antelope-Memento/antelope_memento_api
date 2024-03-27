@@ -97,8 +97,6 @@ function getSocketStateActions(socketId: SocketId) {
                 args,
                 lastTransactionBlockNum: 0,
                 transactionType: args.irreversible ? 'trace' : 'fork',
-                lastEmitTimestamp: null,
-                forceSwitch: false,
             };
         },
         getSocketState: () => state.connectedSockets[socketId],
@@ -179,17 +177,12 @@ async function emitTransactionsHistory(socket: Socket) {
         irreversible,
         transactionType,
     });
-    // If a client is too slow in consuming the stream,
-    // the server should switch from head block back to scanning EVENT_LOG specifically for this client.
-    // If the scanning delays behind the last irreversible block,
-    // the server should switch to scanning RECEIPTS and TRANSACTIONS.
-    // @TODO: Implement the logic above
 
     if (shouldSwitchToTrace) {
         setSocketState({
             transactionType: 'trace',
         });
-        emitTransactionsHistory(socket);
+        scheduleNextEmit(socket);
         return;
     }
 
@@ -197,7 +190,7 @@ async function emitTransactionsHistory(socket: Socket) {
         setSocketState({
             transactionType: 'fork',
         });
-        emitTransactionsHistory(socket);
+        scheduleNextEmit(socket);
         return;
     }
 
@@ -208,6 +201,12 @@ async function emitTransactionsHistory(socket: Socket) {
         lastIrreversibleBlock,
         irreversible,
     });
+}
+
+function scheduleNextEmit(socket: Socket) {
+    setTimeout(() => {
+        emitTransactionsHistory(socket);
+    }, EMIT_TIMEOUT_TIME);
 }
 
 function shouldSwitchToTraceType({
@@ -298,7 +297,7 @@ async function emitTransactionsBasedOnType({
                     toBlock,
                 });
             } else {
-                emitTransactionsHistory(socket);
+                scheduleNextEmit(socket);
             }
             break;
         }
@@ -333,7 +332,6 @@ async function emitTraceTransactions(
         const lastTransactionBlockNum = transactionsHistory[0].block_num;
         setSocketState({
             lastTransactionBlockNum: Number(lastTransactionBlockNum),
-            lastEmitTimestamp: Date.now(),
         });
     }
 
@@ -344,29 +342,11 @@ async function emitTraceTransactions(
     );
 
     if (isNonEmptyArray(transactions)) {
-        socket.emit(
-            EVENT.TRANSACTIONS_HISTORY,
-            transactions,
-            (ack: boolean) => {
-                if (ack) {
-                    const ackTimestamp = Date.now();
-                    const state = getSocketStateActions(
-                        socket.id
-                    ).getSocketState();
-                    console.log({
-                        lastEmitTimestamp: state?.lastEmitTimestamp,
-                        ackTimestamp,
-                        diff: ackTimestamp - (state?.lastEmitTimestamp ?? 0),
-                        type: 'trace',
-                    });
-                    setTimeout(() => {
-                        emitTransactionsHistory(socket);
-                    }, EMIT_TIMEOUT_TIME);
-                }
-            }
-        );
+        socket.emit(EVENT.TRANSACTIONS_HISTORY, transactions, () => {
+            scheduleNextEmit(socket);
+        });
     } else {
-        emitTransactionsHistory(socket);
+        scheduleNextEmit(socket);
     }
 }
 
@@ -374,38 +354,14 @@ async function emitForkTransactions(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
-    const { setSocketState } = getSocketStateActions(socket.id);
-
     const transactions = formatTransactions(state.forks.data, 'fork', accounts);
 
     if (isNonEmptyArray(transactions)) {
-        setSocketState({
-            lastEmitTimestamp: Date.now(),
+        socket.emit(EVENT.TRANSACTIONS_HISTORY, transactions, () => {
+            scheduleNextEmit(socket);
         });
-
-        socket.emit(
-            EVENT.TRANSACTIONS_HISTORY,
-            transactions,
-            (ack: boolean) => {
-                if (ack) {
-                    const ackTimestamp = Date.now();
-                    const state = getSocketStateActions(
-                        socket.id
-                    ).getSocketState();
-                    console.log({
-                        lastEmitTimestamp: state?.lastEmitTimestamp,
-                        ackTimestamp,
-                        diff: ackTimestamp - (state?.lastEmitTimestamp ?? 0),
-                        type: 'fork',
-                    });
-                    setTimeout(() => {
-                        emitTransactionsHistory(socket);
-                    }, EMIT_TIMEOUT_TIME);
-                }
-            }
-        );
     } else {
-        emitTransactionsHistory(socket);
+        scheduleNextEmit(socket);
     }
 }
 
