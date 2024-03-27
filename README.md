@@ -157,7 +157,9 @@ The API supports Web Sockets for real-time updates. We use socket.io for the Web
 Example of a client-side javascript code:
 
 ```javascript
-import { io } from 'socket.io-client'; // npm i socket.io-client
+// npm i socket.io-client
+
+import { io } from 'socket.io-client';
 
 const socket = io('https://memento-streaming-dev.binfra.one', {
     path: '/wax',
@@ -180,8 +182,9 @@ socket.emit('transactions_history', {
 });
 
 // start receiving the transaction data
-socket.on('transactions_history', (data) => {
+socket.on('transactions_history', (data, ack) => {
     console.log(data);
+    ack(); // acknowledge the receipt of the data, required (otherwise the server will stop sending data)
 });
 
 socket.on('error', (error) => {
