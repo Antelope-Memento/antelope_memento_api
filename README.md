@@ -167,18 +167,18 @@ const socket = io('https://memento-streaming-dev.binfra.one', {
 });
 
 socket.on('connect', () => {
-    console.log('connected to memento-api');
+    console.log('connected to memento-api websocket');
+
+    // subscribe to the transactions_history event after the connection is established
+    socket.emit('transactions_history', {
+        accounts: ['account1', 'account2'], // array of account names, required
+        start_block: 298284392, // start reading from the block_num, optional (head block is used by default)
+        irreversible: true, // only irreversible transactions, optional (false by default)
+    });
 });
 
 socket.on('disconnect', () => {
-    console.log('disconnected from memento-api');
-});
-
-// subscribe to the transactions_history event
-socket.emit('transactions_history', {
-    accounts: ['account1', 'account2'], // array of account names, required
-    start_block: 298284392, // start reading from the block_num, optional (head block is used by default)
-    irreversible: true, // only irreversible transactions, optional (false by default)
+    console.log('disconnected from memento-api websocket');
 });
 
 // start receiving the transaction data
