@@ -182,7 +182,7 @@ async function emitTransactionsHistory(socket: Socket) {
         setSocketState({
             transactionType: 'trace',
         });
-        scheduleNextEmit(socket);
+        scheduleEmit(socket);
         return;
     }
 
@@ -190,7 +190,7 @@ async function emitTransactionsHistory(socket: Socket) {
         setSocketState({
             transactionType: 'fork',
         });
-        scheduleNextEmit(socket);
+        scheduleEmit(socket);
         return;
     }
 
@@ -203,7 +203,7 @@ async function emitTransactionsHistory(socket: Socket) {
     });
 }
 
-function scheduleNextEmit(socket: Socket) {
+function scheduleEmit(socket: Socket) {
     setTimeout(() => {
         emitTransactionsHistory(socket);
     }, EMIT_TIMEOUT_TIME);
@@ -297,7 +297,7 @@ async function emitTransactionsBasedOnType({
                     toBlock,
                 });
             } else {
-                scheduleNextEmit(socket);
+                scheduleEmit(socket);
             }
             break;
         }
@@ -343,10 +343,10 @@ async function emitTraceTransactions(
 
     if (isNonEmptyArray(transactions)) {
         socket.emit(EVENT.TRANSACTIONS_HISTORY, transactions, () => {
-            scheduleNextEmit(socket);
+            scheduleEmit(socket);
         });
     } else {
-        scheduleNextEmit(socket);
+        scheduleEmit(socket);
     }
 }
 
@@ -358,10 +358,10 @@ async function emitForkTransactions(
 
     if (isNonEmptyArray(transactions)) {
         socket.emit(EVENT.TRANSACTIONS_HISTORY, transactions, () => {
-            scheduleNextEmit(socket);
+            scheduleEmit(socket);
         });
     } else {
-        scheduleNextEmit(socket);
+        scheduleEmit(socket);
     }
 }
 
