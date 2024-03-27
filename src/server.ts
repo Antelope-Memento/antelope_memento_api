@@ -1,18 +1,44 @@
-const express = require("express");
-const cors = require("cors");
-const morgan = require("morgan");
-const cluster = require('cluster');
+import express from 'express';
+import http from 'http';
+import cors from 'cors';
+import morgan from 'morgan';
+import cluster from 'cluster';
+import { Server } from 'socket.io';
 
-require("dotenv").config();
+import 'dotenv/config';
 
-const router = require("./routes/routes");
-const dbUtility = require("./utilities/db");
-const constant = require("./constants/config");
+import router from './routes/routes';
+import dbUtility from './utilities/db';
+import constant from './constants/config';
+import { onConnection } from './services/webSocket';
 
 const app = express();
+const server = http.createServer(app);
 
-const required_options = ['SERVER_BIND_IP', 'SERVER_BIND_PORT', 'DATABASE_SELECT', 'HEALTHY_SYNC_TIME_DIFF',
-    'API_PATH_PREFIX', 'CPU_CORES', 'MAX_RECORD_COUNT', 'CONNECTION_POOL'
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+    },
+    path: `/${process.env.API_PATH_PREFIX}`,
+    transports: ['websocket'],
+});
+
+io.on(constant.EVENT.CONNECTION, (socket) => {
+    onConnection(socket, io);
+});
+
+const required_options = [
+    'SERVER_BIND_IP',
+    'SERVER_BIND_PORT',
+    'DATABASE_SELECT',
+    'HEALTHY_SYNC_TIME_DIFF',
+    'API_PATH_PREFIX',
+    'CPU_CORES',
+    'MAX_RECORD_COUNT',
+    'WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD',
+    'WS_TRACE_TRANSACTIONS_LIMIT',
+    'WS_FORK_TRANSACTIONS_LIMIT',
+    'CONNECTION_POOL',
 ];
 
 required_options.forEach((item, i) => {
@@ -22,28 +48,34 @@ required_options.forEach((item, i) => {
     }
 });
 
-app.use(cors({
-    origin: "*",
-}));
+app.use(
+    cors({
+        origin: '*',
+    })
+);
 
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms :remote-addr'));
+app.use(
+    morgan(
+        ':method :url :status :res[content-length] - :response-time ms :remote-addr'
+    )
+);
 app.use(express.json());
 
 app.use(`/${process.env.API_PATH_PREFIX}`, router);
 
 app.get(`/${process.env.API_PATH_PREFIX}`, (req, res) => {
-    res.send("Memento API");
+    res.send('Memento API');
 });
 
 dbUtility.CreateConnectionPool();
 
-var port = process.env.SERVER_BIND_PORT || 12345;
-var bind_ip = process.env.SERVER_BIND_IP || '0.0.0.0';
+const port = Number(process.env.SERVER_BIND_PORT) || 12345;
+const bind_ip = process.env.SERVER_BIND_IP || '0.0.0.0';
 
-createClusteredServer(bind_ip, port, process.env.CPU_CORES);
+createClusteredServer(bind_ip, port, Number(process.env.CPU_CORES));
 
 //create clustered server and bind with specified ip address and port number
-function createClusteredServer(ip, port, clusterSize) {
+function createClusteredServer(ip: string, port: number, clusterSize: number) {
     if (clusterSize > 1) {
         if (cluster.isMaster) {
             console.log(`Master ${process.pid} is running`);
@@ -64,20 +96,19 @@ function createClusteredServer(ip, port, clusterSize) {
                 console.log('Starting a new worker ');
             });
         } else {
-            app.listen(port, ip, () => {
+            server.listen(port, ip, () => {
                 console.log(`listening on port no ${port}`);
             });
             console.log(`Worker ${process.pid} started`);
         }
     } else {
-        app.listen(port, ip, () => {
+        server.listen(port, ip, () => {
             console.log(`listening on port no ${port}`);
         });
     }
 }
 
-
-var gracefulExit = function() {
+function gracefulExit() {
     console.log('Close DB connection');
     dbUtility.CloseConnection();
     process.exit(0);
@@ -86,11 +117,11 @@ var gracefulExit = function() {
 // If the Node process ends, close the DB connection
 process.on('SIGINT', gracefulExit).on('SIGTERM', gracefulExit);
 
-process.on('uncaughtException', function(error) {
+process.on('uncaughtException', function (error) {
     console.log('uncaughtException ' + error);
 });
 
-process.on('unhandledRejection', function(reason, p) {
+process.on('unhandledRejection', function (reason, p) {
     console.log('unhandledRejection ' + reason);
 });
 

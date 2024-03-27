@@ -19,7 +19,6 @@ front of the API, so the end-user URL would be starting with
 All API calls are HTTP GET requests with mandatory and optional
 arguments.
 
-
 ### `/health`
 
 The call is useful for load balancers, as it reports the error in HTTP
@@ -38,7 +37,7 @@ if the database is operational, but not up to date.
 
 Arguments: none.
 
-Returns a JSON object with `status` and `diff` fields.  Status is
+Returns a JSON object with `status` and `diff` fields. Status is
 boolean and `diff` indicates how long in milliseconds the database is
 behind the real time.
 
@@ -66,7 +65,6 @@ if known is true).
 
 If a transaction ID is not found in the database, the result has known=false.
 
-
 ### `/get_account_history`
 
 The call retrieves transaction traces that are relevant to a specified
@@ -87,23 +85,21 @@ Mandatory argument: `account`.
 
 Optional arguments:
 
-* `irreversible` (boolean): if set to true, the result will only
-  contain irreversible transactions.
+-   `irreversible` (boolean): if set to true, the result will only
+    contain irreversible transactions.
 
-* `max_count` (uint): maximum number of records. The result is also
-  limited by MAX_RECORD_COUNT configuration setting, so the count
-  parameter may reduce the output if desired.
+-   `max_count` (uint): maximum number of records. The result is also
+    limited by MAX_RECORD_COUNT configuration setting, so the count
+    parameter may reduce the output if desired.
 
-* `pos` (int): if negative, the resulting traces will start from
-  `recv_sequence` that is this far from the latest sequence number. If
-  positive, the parameter specifies the starting value of
-  `recv_sequence`. If omitted, the request returns up to
-  MAX_RECORD_COUNT last traces for the account.
+-   `pos` (int): if negative, the resulting traces will start from
+    `recv_sequence` that is this far from the latest sequence number. If
+    positive, the parameter specifies the starting value of
+    `recv_sequence`. If omitted, the request returns up to
+    MAX_RECORD_COUNT last traces for the account.
 
-* `action_filter` (string): if specified, the result will be filtered
-  by the contract and action. Format: `CONTRACT:ACTION`.
-
-
+-   `action_filter` (string): if specified, the result will be filtered
+    by the contract and action. Format: `CONTRACT:ACTION`.
 
 ### `/get_pos`
 
@@ -114,49 +110,175 @@ timestamp.
 
 Mandatory argument: `account`. `timestamp`.
 
-
-
 ## GraphQL API
 
 The GraphQL interface is accessible at `/graphql` location from the
 base URL (e.g. `https://memento.eu.eosamsterdam.net/wax/graphql`). It
 allows performing the same requests as in the RESTful API.
 
-
 ### Types
 
-* `transaction_status`:
-  - `known: Boolean!`
-  - `irreversible: Boolean`
-  - `block_num: Int`
-  - `block_time: String`
-  - `data: GraphQLJSON`
+-   `transaction_status`:
 
-* `history_data`:
-  - `last_irreversible_block: Unsigned Int!`
-  - `data: [GraphQLJSON]!`
+    -   `known: Boolean!`
+    -   `irreversible: Boolean`
+    -   `block_num: Int`
+    -   `block_time: String`
+    -   `data: GraphQLJSON`
+
+-   `history_data`:
+    -   `last_irreversible_block: Unsigned Int!`
+    -   `data: [GraphQLJSON]!`
 
 ### Queries
 
 The following queries are supported:
 
-* `account_history`: returns `history_data`
-  - `account: String!`
-  - `irreversible: Boolean`
-  - `max_count: Int`
-  - `pos: String` (long integer as string)
-  - `action_filter: String`
+-   `account_history`: returns `history_data`
 
-* `get_pos`: returns String
-  - `account: String!`
-  - `timestamp: String!`
+    -   `account: String!`
+    -   `irreversible: Boolean`
+    -   `max_count: Int`
+    -   `pos: String` (long integer as string)
+    -   `action_filter: String`
 
+-   `get_pos`: returns String
 
-* `transaction`: returns transaction_status
-  - `trx_id: String!`
+    -   `account: String!`
+    -   `timestamp: String!`
 
+-   `transaction`: returns transaction_status
+    -   `trx_id: String!`
 
+## Web Sockets
 
+The API supports Web Sockets for real-time updates. We use socket.io for the Web Socket interface. The client can subscribe to the `transactions_history` event, which start emitting the transaction data based on the provided parameters.
+
+Example of a client-side javascript code:
+
+```javascript
+// npm i socket.io-client
+
+import { io } from 'socket.io-client';
+
+const socket = io('https://memento-streaming-dev.binfra.one', {
+    path: '/wax',
+    transports: ['websocket'],
+});
+
+socket.on('connect', () => {
+    console.log('connected to memento-api websocket');
+
+    // subscribe to the transactions_history event after the connection is established
+    socket.emit('transactions_history', {
+        accounts: ['account1', 'account2'], // array of account names, required
+        start_block: 298284392, // start reading from the block_num, optional (head block is used by default)
+        irreversible: true, // only irreversible transactions, optional (false by default)
+    });
+});
+
+socket.on('disconnect', () => {
+    console.log('disconnected from memento-api websocket');
+});
+
+// start receiving the transaction data
+socket.on('transactions_history', (data, ack) => {
+    console.log(data);
+    ack(); // acknowledge the receipt of the data, required (otherwise the server will stop sending data)
+});
+
+socket.on('error', (error) => {
+    console.error(error);
+});
+```
+
+Example of 'transactions_history' event data:
+
+```json
+[
+    {
+        "block_num": "298284392",
+        "type": "trace",
+        "data": {
+            "trace": {
+                "block_num": "298284392",
+                "block_timestamp": "2024-03-16T18:47:03.500",
+                "trace": {
+                    "id": "8efb8c0b850042c2c5801fa85532c46cc3cf9fdd49e1dbf6e8af28854a8ae7e1",
+                    "status": "executed",
+                    "cpu_usage_us": "436",
+                    "net_usage_words": "24",
+                    "elapsed": "350",
+                    "net_usage": "192",
+                    "scheduled": "false",
+                    "action_traces": [
+                        {
+                            "action_ordinal": "1",
+                            "creator_action_ordinal": "0",
+                            "receipt": {
+                                "receiver": "novarallytok",
+                                "act_digest": "de17ddb2c14e205fb914664eb7b5dbb852e62fc56af645786be7a4b2569763c3",
+                                "global_sequence": "88656190165",
+                                "recv_sequence": "9081688",
+                                "auth_sequence": [
+                                    {
+                                        "account": "n2jbm.wam",
+                                        "sequence": "59458"
+                                    }
+                                ],
+                                "code_sequence": "1",
+                                "abi_sequence": "1"
+                            },
+                            "receiver": "novarallytok",
+                            "act": {
+                                "account": "novarallytok",
+                                "name": "transfer",
+                                "authorization": [
+                                    {
+                                        "actor": "n2jbm.wam",
+                                        "permission": "active"
+                                    }
+                                ],
+                                "data": {
+                                    "from": "n2jbm.wam",
+                                    "to": "swap.alcor",
+                                    "quantity": "992426 SNAKGAS",
+                                    "memo": "swapexactin#277#n2jbm.wam#1.53894783 WAX@eosio.token#0"
+                                }
+                            },
+                            "context_free": "false",
+                            "elapsed": "66",
+                            "console": "11328360222704429312INFO quantity.amount: 992426 @ 18:47:3 novarallytok.cpp[114](transfer)\n",
+                            "account_ram_deltas": [],
+                            "except": "",
+                            "error_code": null,
+                            "return_value": ""
+                        }
+                    ],
+                    "account_ram_delta": null,
+                    "except": "",
+                    "error_code": null,
+                    "failed_dtrx_trace": [],
+                    "partial": {
+                        "expiration": { "utc_seconds": "1710615175" },
+                        "ref_block_num": "30039",
+                        "ref_block_prefix": "1394522270",
+                        "max_net_usage_words": "0",
+                        "max_cpu_usage_ms": "0",
+                        "delay_sec": "0",
+                        "transaction_extensions": [],
+                        "signatures": [
+                            "SIG_K1_KAYsXVfqbgMMtsWbQUzWVsiaLkfTLBn6d1b8XnCCndo9MaZrmo35hzDzLDmabqUrmKxNHoShnsQFDao9i3FSkkqoNZdWGA",
+                            "SIG_K1_K54UkopGBj1mWswfo9h1grPT52A2T3TvYPRJiFpwBEhdFGytgS5VQboTakdUP5Co2TniTFg1PMmcUh2bM4hgpyE69muSJa"
+                        ],
+                        "context_free_data": []
+                    }
+                }
+            }
+        }
+    }
+]
+```
 
 ## Installation
 
@@ -186,6 +308,10 @@ HEALTHY_SYNC_TIME_DIFF = 15000
 API_PATH_PREFIX = wax
 CPU_CORES = 4
 MAX_RECORD_COUNT = 100
+WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100
+WS_TRACE_TRANSACTIONS_LIMIT = 100
+WS_FORK_TRANSACTIONS_LIMIT = 100
+
 EOT
 
 systemctl enable memento_api@wax
@@ -206,6 +332,10 @@ HEALTHY_SYNC_TIME_DIFF = 15000
 API_PATH_PREFIX = waxpg
 CPU_CORES = 4
 MAX_RECORD_COUNT = 100
+WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100
+WS_TRACE_TRANSACTIONS_LIMIT = 100
+WS_FORK_TRANSACTIONS_LIMIT = 100
+
 EOT
 
 systemctl enable memento_api@waxpg
@@ -239,11 +369,14 @@ CPU_CORES = 2   // number of cpu cores, value should not exceed max number of co
 
 MAX_RECORD_COUNT = 10  // maximum number of records that can be returned in a single request
 
+WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100 // maximum number of blocks threshold for which transactions will be emitted from websocket
+WS_TRACE_TRANSACTIONS_LIMIT = 100 // maximum number of irreversible transactions which can be emitted from websocket
+WS_FORK_TRANSACTIONS_LIMIT = 100 // maximum number of reversible transactions which can be emitted from websocket
+
 ```
 
-
-
 # Acknowledgments
+
 This work was sponsored by EOS Amsterdam block producer.
 
 Copyright 2023 Raj Kumar (raj.rpt@gmail.com), cc32d9 (cc32d9@gmail.com)

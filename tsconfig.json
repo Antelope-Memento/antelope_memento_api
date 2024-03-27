@@ -1,0 +1,12 @@
+{
+    "extends": "@tsconfig/recommended/tsconfig.json",
+    "compilerOptions": {
+        "noImplicitAny": true,
+        "allowJs": true,
+        "outDir": "dist",
+        "rootDir": "src",
+        "sourceMap": true,
+        "noUncheckedIndexedAccess": true
+    },
+    "exclude": ["**/*.js", "tests"]
+}
