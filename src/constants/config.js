@@ -1,12 +1,12 @@
 module.exports = constant = {
-    STATUS_SUCCESS: "success",
-    STATUS_FAILURE: "failure",
-    DATA_SEND_ERROR: "Data send error",
+    STATUS_SUCCESS: 'success',
+    STATUS_FAILURE: 'failure',
+    DATA_SEND_ERROR: 'Data send error',
 
-    RECORD_NOT_FOUND: "Record not found",
-    DB_READ_ERROR: "Unable to read db",
-    MSG_HEALTHY: "Healthy",
-    MSG_INCORRECT_PARAM: "Incorrect query parameter:",
+    RECORD_NOT_FOUND: 'Record not found',
+    DB_READ_ERROR: 'Unable to read db',
+    MSG_HEALTHY: 'Healthy',
+    MSG_INCORRECT_PARAM: 'Incorrect query parameter:',
 
     //HTTP Status codes
     HTTP_200_CODE: 200,
@@ -20,6 +20,6 @@ module.exports = constant = {
     HTTP_500_CODE: 500,
     HTTP_503_CODE: 503,
 
-    MYSQL_DB: "MYSQL",
-    POSTGRES_DB: "POSTGRES",
+    MYSQL_DB: 'MYSQL',
+    POSTGRES_DB: 'POSTGRES',
 };

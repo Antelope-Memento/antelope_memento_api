@@ -19,7 +19,6 @@ front of the API, so the end-user URL would be starting with
 All API calls are HTTP GET requests with mandatory and optional
 arguments.
 
-
 ### `/health`
 
 The call is useful for load balancers, as it reports the error in HTTP
@@ -38,7 +37,7 @@ if the database is operational, but not up to date.
 
 Arguments: none.
 
-Returns a JSON object with `status` and `diff` fields.  Status is
+Returns a JSON object with `status` and `diff` fields. Status is
 boolean and `diff` indicates how long in milliseconds the database is
 behind the real time.
 
@@ -66,7 +65,6 @@ if known is true).
 
 If a transaction ID is not found in the database, the result has known=false.
 
-
 ### `/get_account_history`
 
 The call retrieves transaction traces that are relevant to a specified
@@ -87,23 +85,21 @@ Mandatory argument: `account`.
 
 Optional arguments:
 
-* `irreversible` (boolean): if set to true, the result will only
-  contain irreversible transactions.
+-   `irreversible` (boolean): if set to true, the result will only
+    contain irreversible transactions.
 
-* `max_count` (uint): maximum number of records. The result is also
-  limited by MAX_RECORD_COUNT configuration setting, so the count
-  parameter may reduce the output if desired.
+-   `max_count` (uint): maximum number of records. The result is also
+    limited by MAX_RECORD_COUNT configuration setting, so the count
+    parameter may reduce the output if desired.
 
-* `pos` (int): if negative, the resulting traces will start from
-  `recv_sequence` that is this far from the latest sequence number. If
-  positive, the parameter specifies the starting value of
-  `recv_sequence`. If omitted, the request returns up to
-  MAX_RECORD_COUNT last traces for the account.
+-   `pos` (int): if negative, the resulting traces will start from
+    `recv_sequence` that is this far from the latest sequence number. If
+    positive, the parameter specifies the starting value of
+    `recv_sequence`. If omitted, the request returns up to
+    MAX_RECORD_COUNT last traces for the account.
 
-* `action_filter` (string): if specified, the result will be filtered
-  by the contract and action. Format: `CONTRACT:ACTION`.
-
-
+-   `action_filter` (string): if specified, the result will be filtered
+    by the contract and action. Format: `CONTRACT:ACTION`.
 
 ### `/get_pos`
 
@@ -114,49 +110,45 @@ timestamp.
 
 Mandatory argument: `account`. `timestamp`.
 
-
-
 ## GraphQL API
 
 The GraphQL interface is accessible at `/graphql` location from the
 base URL (e.g. `https://memento.eu.eosamsterdam.net/wax/graphql`). It
 allows performing the same requests as in the RESTful API.
 
-
 ### Types
 
-* `transaction_status`:
-  - `known: Boolean!`
-  - `irreversible: Boolean`
-  - `block_num: Int`
-  - `block_time: String`
-  - `data: GraphQLJSON`
+-   `transaction_status`:
 
-* `history_data`:
-  - `last_irreversible_block: Unsigned Int!`
-  - `data: [GraphQLJSON]!`
+    -   `known: Boolean!`
+    -   `irreversible: Boolean`
+    -   `block_num: Int`
+    -   `block_time: String`
+    -   `data: GraphQLJSON`
+
+-   `history_data`:
+    -   `last_irreversible_block: Unsigned Int!`
+    -   `data: [GraphQLJSON]!`
 
 ### Queries
 
 The following queries are supported:
 
-* `account_history`: returns `history_data`
-  - `account: String!`
-  - `irreversible: Boolean`
-  - `max_count: Int`
-  - `pos: String` (long integer as string)
-  - `action_filter: String`
+-   `account_history`: returns `history_data`
 
-* `get_pos`: returns String
-  - `account: String!`
-  - `timestamp: String!`
+    -   `account: String!`
+    -   `irreversible: Boolean`
+    -   `max_count: Int`
+    -   `pos: String` (long integer as string)
+    -   `action_filter: String`
 
+-   `get_pos`: returns String
 
-* `transaction`: returns transaction_status
-  - `trx_id: String!`
+    -   `account: String!`
+    -   `timestamp: String!`
 
-
-
+-   `transaction`: returns transaction_status
+    -   `trx_id: String!`
 
 ## Installation
 
@@ -241,9 +233,8 @@ MAX_RECORD_COUNT = 10  // maximum number of records that can be returned in a si
 
 ```
 
-
-
 # Acknowledgments
+
 This work was sponsored by EOS Amsterdam block producer.
 
 Copyright 2023 Raj Kumar (raj.rpt@gmail.com), cc32d9 (cc32d9@gmail.com)
