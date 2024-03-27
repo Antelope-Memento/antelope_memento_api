@@ -18,9 +18,11 @@ export interface State {
 }
 
 export interface SocketState {
-    intervalId: NodeJS.Timeout | null;
-    lastTransactionBlockNum: number;
+    args: Args;
     transactionType: TransactionType;
+    lastTransactionBlockNum: number;
+    lastEmitTimestamp: number | null;
+    forceSwitch: boolean;
 }
 
 export interface Args {

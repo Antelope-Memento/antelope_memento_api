@@ -25,7 +25,7 @@ const TRACE_TRANSACTIONS_LIMIT =
 const FORK_TRANSACTIONS_LIMIT =
     Number(process.env.WS_FORK_TRANSACTIONS_LIMIT) ?? 100;
 
-const EMIT_INTERVAL_TIME = 1000; // Time in milliseconds to emit transactions_history event
+const EMIT_TIMEOUT_TIME = 500; // Time in milliseconds to wait before emitting the next transactions
 const FORK_TRANSACTIONS_WRITING_INTERVAL_TIME = 500; // Time in milliseconds to write the fork transactions
 
 const state: State = {
@@ -92,11 +92,13 @@ async function writeForkTransactions() {
 
 function getSocketStateActions(socketId: SocketId) {
     return {
-        initializeSocketState: (irreversible?: boolean): void => {
+        initializeSocketState: (args: Args): void => {
             state.connectedSockets[socketId] = {
-                intervalId: null,
+                args,
                 lastTransactionBlockNum: 0,
-                transactionType: irreversible ? 'trace' : 'fork',
+                transactionType: args.irreversible ? 'trace' : 'fork',
+                lastEmitTimestamp: null,
+                forceSwitch: false,
             };
         },
         getSocketState: () => state.connectedSockets[socketId],
@@ -112,11 +114,6 @@ function getSocketStateActions(socketId: SocketId) {
             };
         },
         clearSocketState: (): void => {
-            const interval = state.connectedSockets[socketId]?.intervalId;
-            if (interval) {
-                clearInterval(interval);
-            }
-
             if (state.connectedSockets[socketId]) {
                 delete state.connectedSockets[socketId];
             }
@@ -139,25 +136,13 @@ function onTransactionsHistory(socket: Socket, args: Args) {
 
     // initialize the state for the socket connection (only once per connection)
     if (!getSocketState()) {
-        initializeSocketState(args?.irreversible);
+        initializeSocketState(args);
     }
 
-    // send the transactions history to the client every EMIT_INTERVAL_TIME milliseconds
-    setSocketState({
-        intervalId: setInterval(async () => {
-            try {
-                await emitTransactionsHistory(socket, args);
-            } catch (error) {
-                console.error('error emitting transactions history:', error);
-            }
-        }, EMIT_INTERVAL_TIME),
-    });
+    emitTransactionsHistory(socket);
 }
 
-async function emitTransactionsHistory(
-    socket: Socket,
-    { accounts, start_block, irreversible = false }: Args
-) {
+async function emitTransactionsHistory(socket: Socket) {
     const { setSocketState, getSocketState } = getSocketStateActions(socket.id);
 
     const headBlock = await db.GetLastSyncedBlockNumber();
@@ -168,7 +153,11 @@ async function emitTransactionsHistory(
         state,
         `emitTransactionsHistory: socket state not found for socket: ${socket.id}`
     );
-    const { lastTransactionBlockNum, transactionType } = state;
+    const {
+        lastTransactionBlockNum,
+        transactionType,
+        args: { accounts, start_block, irreversible },
+    } = state;
 
     const startBlock = Math.max(
         start_block ?? headBlock,
@@ -200,6 +189,7 @@ async function emitTransactionsHistory(
         setSocketState({
             transactionType: 'trace',
         });
+        emitTransactionsHistory(socket);
         return;
     }
 
@@ -207,8 +197,10 @@ async function emitTransactionsHistory(
         setSocketState({
             transactionType: 'fork',
         });
+        emitTransactionsHistory(socket);
         return;
     }
+
     emitTransactionsBasedOnType({
         socket,
         accounts,
@@ -297,7 +289,7 @@ async function emitTransactionsBasedOnType({
                 : threshold;
 
             const shouldExecute =
-                startBlock < toBlock && lastIrreversibleBlock !== startBlock;
+                startBlock < toBlock && lastIrreversibleBlock !== toBlock;
 
             if (shouldExecute) {
                 emitTraceTransactions(socket, {
@@ -305,6 +297,8 @@ async function emitTransactionsBasedOnType({
                     fromBlock: startBlock,
                     toBlock,
                 });
+            } else {
+                emitTransactionsHistory(socket);
             }
             break;
         }
@@ -339,23 +333,80 @@ async function emitTraceTransactions(
         const lastTransactionBlockNum = transactionsHistory[0].block_num;
         setSocketState({
             lastTransactionBlockNum: Number(lastTransactionBlockNum),
+            lastEmitTimestamp: Date.now(),
         });
     }
 
-    socket.emit(
-        EVENT.TRANSACTIONS_HISTORY,
-        formatTransactions(transactionsHistory, 'trace', accounts)
+    const transactions = formatTransactions(
+        transactionsHistory,
+        'trace',
+        accounts
     );
+
+    if (isNonEmptyArray(transactions)) {
+        socket.emit(
+            EVENT.TRANSACTIONS_HISTORY,
+            transactions,
+            (ack: boolean) => {
+                if (ack) {
+                    const ackTimestamp = Date.now();
+                    const state = getSocketStateActions(
+                        socket.id
+                    ).getSocketState();
+                    console.log({
+                        lastEmitTimestamp: state?.lastEmitTimestamp,
+                        ackTimestamp,
+                        diff: ackTimestamp - (state?.lastEmitTimestamp ?? 0),
+                        type: 'trace',
+                    });
+                    setTimeout(() => {
+                        emitTransactionsHistory(socket);
+                    }, EMIT_TIMEOUT_TIME);
+                }
+            }
+        );
+    } else {
+        emitTransactionsHistory(socket);
+    }
 }
 
 async function emitForkTransactions(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
-    socket.emit(
-        EVENT.TRANSACTIONS_HISTORY,
-        formatTransactions(state.forks.data, 'fork', accounts)
-    );
+    const { setSocketState } = getSocketStateActions(socket.id);
+
+    const transactions = formatTransactions(state.forks.data, 'fork', accounts);
+
+    if (isNonEmptyArray(transactions)) {
+        setSocketState({
+            lastEmitTimestamp: Date.now(),
+        });
+
+        socket.emit(
+            EVENT.TRANSACTIONS_HISTORY,
+            transactions,
+            (ack: boolean) => {
+                if (ack) {
+                    const ackTimestamp = Date.now();
+                    const state = getSocketStateActions(
+                        socket.id
+                    ).getSocketState();
+                    console.log({
+                        lastEmitTimestamp: state?.lastEmitTimestamp,
+                        ackTimestamp,
+                        diff: ackTimestamp - (state?.lastEmitTimestamp ?? 0),
+                        type: 'fork',
+                    });
+                    setTimeout(() => {
+                        emitTransactionsHistory(socket);
+                    }, EMIT_TIMEOUT_TIME);
+                }
+            }
+        );
+    } else {
+        emitTransactionsHistory(socket);
+    }
 }
 
 function validateArgs(args: Args) {
@@ -367,7 +418,7 @@ function validateArgs(args: Args) {
                 valid: false,
                 message: EVENT_ERRORS.INVALID_ARGS,
             };
-        case !isNonEmptyArrayOfAccounts(accounts):
+        case !accounts || !isNonEmptyArrayOfAccounts(accounts):
             return {
                 valid: false,
                 message: EVENT_ERRORS.INVALID_ACCOUNTS,
