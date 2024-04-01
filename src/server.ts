@@ -19,7 +19,7 @@ const io = new Server(server, {
     cors: {
         origin: '*',
     },
-    path: `/${process.env.API_PATH_PREFIX}`,
+    path: `/${process.env.API_PATH_PREFIX}/socket.io`,
     transports: ['websocket'],
 });
 

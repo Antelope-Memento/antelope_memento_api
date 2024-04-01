@@ -162,7 +162,7 @@ Example of a client-side javascript code:
 import { io } from 'socket.io-client';
 
 const socket = io('https://memento-streaming-dev.binfra.one', {
-    path: '/wax',
+    path: '/wax/socket.io',
     transports: ['websocket'],
 });
 
