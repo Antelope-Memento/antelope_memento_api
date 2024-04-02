@@ -1,15 +1,6 @@
 import { Socket } from 'socket.io';
-import {
-    State,
-    SocketId,
-    TransactionType,
-    Args,
-    SocketState,
-    ForkTransactionEntity,
-    TraceTransactionEntity,
-} from './types';
+import { State, SocketId, TransactionType, Args, SocketState } from './types';
 
-import db from '../../../utilities/db'; // @TODO: add typescript to DB configuration and remove `any` from the code below
 import { EVENT, EVENT_ERRORS } from '../../../constants/config';
 import {
     isNumber,
@@ -17,6 +8,10 @@ import {
     isNonEmptyArrayOfAccounts,
 } from '../../../utilities/helpers';
 import { assert } from 'ts-essentials';
+import * as syncService from '../../sync';
+import * as receiptsService from '../../receipts';
+import * as eventLogService from '../../eventLog';
+import * as transactionsService from '../../transactions';
 
 const TRACE_TRANSACTIONS_BLOCKS_THRESHOLD =
     Number(process.env.WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD) ?? 100;
@@ -68,15 +63,15 @@ async function writeForkTransactions() {
     let fromId: number;
 
     if (!state.forks.lastForkId) {
-        const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
-        const from = await getForkTransactionByBlockNum(lastIrreversibleBlock);
+        const lastIrreversibleBlock =
+            await syncService.getIrreversibleBlockNumber();
 
-        fromId = from[0][(db as any).is_mysql ? 'MAX(id)' : 'max'];
+        fromId = await eventLogService.getMaxEventLog(lastIrreversibleBlock);
     } else {
         fromId = state.forks.lastForkId;
     }
 
-    const forks = await getForkTransactions({
+    const forks = await eventLogService.getAll({
         fromId,
         toId: Number(fromId) + FORK_TRANSACTIONS_LIMIT,
     });
@@ -143,8 +138,10 @@ function onTransactionsHistory(socket: Socket, args: Args) {
 async function emitTransactionsHistory(socket: Socket) {
     const { setSocketState, getSocketState } = getSocketStateActions(socket.id);
 
-    const headBlock = await db.GetLastSyncedBlockNumber();
-    const lastIrreversibleBlock = await db.GetIrreversibleBlockNumber();
+    const headBlock = await syncService.getHeadBlockNumber();
+
+    const lastIrreversibleBlock =
+        await syncService.getIrreversibleBlockNumber();
 
     const state = getSocketState();
     assert(
@@ -272,7 +269,7 @@ async function emitTransactionsBasedOnType({
 
     switch (state.transactionType) {
         case 'trace': {
-            const count = await getTraceTransactionsCount({
+            const count = await receiptsService.getCount({
                 accounts,
                 fromBlock: startBlock,
                 toBlock: startBlock + TRACE_TRANSACTIONS_BLOCKS_THRESHOLD,
@@ -322,11 +319,12 @@ async function emitTraceTransactions(
 ) {
     const { setSocketState } = getSocketStateActions(socket.id);
 
-    const transactionsHistory = await getTraceTransactions({
-        accounts,
-        fromBlock,
-        toBlock,
-    });
+    const transactionsHistory =
+        await transactionsService.getTraceTransactionsV2({
+            accounts,
+            fromBlock,
+            toBlock,
+        });
 
     if (isNonEmptyArray(transactionsHistory)) {
         const lastTransactionBlockNum = transactionsHistory[0].block_num;
@@ -335,11 +333,7 @@ async function emitTraceTransactions(
         });
     }
 
-    const transactions = formatTransactions(
-        transactionsHistory,
-        'trace',
-        accounts
-    );
+    const transactions = transactionsService.format(transactionsHistory);
 
     if (isNonEmptyArray(transactions)) {
         socket.emit(EVENT.TRANSACTIONS_HISTORY, transactions, () => {
@@ -354,7 +348,7 @@ async function emitForkTransactions(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
-    const transactions = formatTransactions(state.forks.data, 'fork', accounts);
+    const transactions = eventLogService.format(state.forks.data, accounts);
 
     if (isNonEmptyArray(transactions)) {
         socket.emit(EVENT.TRANSACTIONS_HISTORY, transactions, () => {
@@ -399,99 +393,6 @@ function validateArgs(args: Args) {
                 valid: true,
             };
     }
-}
-
-function formatTransactions(
-    transactions: (ForkTransactionEntity | TraceTransactionEntity)[],
-    type: TransactionType,
-    accounts: string[]
-) {
-    const parsedTraces = transactions.map(({ trace, ...tx }) => ({
-        ...tx,
-        type,
-        data: JSON.parse(trace.toString('utf8')),
-    }));
-
-    const isFork = type === 'fork';
-
-    return isFork
-        ? parsedTraces.filter((tx) =>
-              (tx.data.trace.action_traces as { receiver: string }[]).some(
-                  ({ receiver }) => accounts.includes(receiver)
-              )
-          )
-        : parsedTraces;
-}
-
-async function getTraceTransactions({
-    accounts,
-    fromBlock,
-    toBlock,
-}: {
-    accounts: Args['accounts'];
-    fromBlock: number;
-    toBlock: number;
-}): Promise<TraceTransactionEntity[]> {
-    return db.ExecuteQueryAsync(`
-        SELECT ${(db as any).is_mysql ? '' : 'R.'}block_num, trace
-        FROM (
-            SELECT DISTINCT seq${(db as any).is_mysql ? '' : ', block_num'}
-            FROM RECEIPTS
-            WHERE receiver IN (${accounts.map((account) => `'${account}'`).join()})
-            AND block_num >= '${fromBlock}'
-            AND block_num < '${toBlock}'
-            ORDER BY block_num DESC
-        ) AS R
-        INNER JOIN TRANSACTIONS ON R.seq = TRANSACTIONS.seq
-    `);
-}
-async function getForkTransactionByBlockNum(blockNum: number) {
-    return db.ExecuteQueryAsync(`
-        SELECT MAX(id) 
-        FROM EVENT_LOG 
-        where block_num = '${blockNum}' 
-    `);
-}
-
-async function getForkTransactions({
-    fromId,
-    toId,
-}: {
-    fromId: number;
-    toId: number;
-}): Promise<ForkTransactionEntity[]> {
-    return db.ExecuteQueryAsync(
-        `
-        SELECT id, block_num, data as trace
-        FROM EVENT_LOG
-        WHERE id > '${fromId}'
-        AND id <= '${toId}'
-        ORDER BY id DESC
-    `
-    );
-}
-
-async function getTraceTransactionsCount({
-    accounts,
-    fromBlock,
-    toBlock,
-}: {
-    accounts: Args['accounts'];
-    fromBlock: number;
-    toBlock: number;
-}) {
-    const count = await db.ExecuteQueryAsync(
-        `
-        SELECT COUNT(DISTINCT seq)
-        FROM RECEIPTS
-        WHERE receiver IN (${accounts.map((account) => `'${account}'`).join()})
-        AND block_num >= '${fromBlock}'
-        AND block_num < '${toBlock}'
-    `
-    );
-    return (db as any).is_mysql
-        ? count[0]['COUNT(DISTINCT seq)']
-        : count[0].count;
 }
 
 function calculateTraceTxsBlockThreshold(count: number, startBlock: number) {

@@ -1,3 +1,5 @@
+import EventLog from '../../../database/models/event_log.model';
+
 export type SocketId = string;
 
 /**
@@ -11,7 +13,7 @@ export interface State {
         [key: SocketId]: SocketState;
     };
     forks: {
-        data: ForkTransactionEntity[];
+        data: EventLog[];
         lastForkId: number | null;
         intervalId: NodeJS.Timeout | null;
     };
@@ -27,15 +29,4 @@ export interface Args {
     accounts: string[];
     start_block?: number;
     irreversible?: boolean;
-}
-
-export interface ForkTransactionEntity {
-    id: number;
-    block_num: number;
-    trace: Buffer;
-}
-
-export interface TraceTransactionEntity {
-    block_num: number;
-    trace: Buffer;
 }
