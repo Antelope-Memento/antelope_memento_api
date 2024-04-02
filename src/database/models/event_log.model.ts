@@ -1,6 +1,9 @@
 import { Model, DataTypes } from '@sequelize/core';
 import sequelize from '..';
 
+const tableName =
+    sequelize.dialect.name === 'postgres' ? 'event_log' : 'EVENT_LOG';
+
 class EventLog extends Model {
     public id!: number;
     public block_num!: number;
@@ -30,7 +33,7 @@ EventLog.init(
     },
     {
         sequelize,
-        tableName: 'EVENT_LOG',
+        tableName,
         timestamps: false,
     }
 );

@@ -1,6 +1,8 @@
 import { Model, DataTypes } from '@sequelize/core';
 import sequelize from '..';
-import Transaction from './transaction.model';
+
+const tableName =
+    sequelize.dialect.name === 'postgres' ? 'receipts' : 'RECEIPTS';
 
 class Receipt extends Model {
     public seq!: number;
@@ -46,7 +48,7 @@ Receipt.init(
     },
     {
         sequelize,
-        tableName: 'RECEIPTS',
+        tableName,
         timestamps: false,
     }
 );

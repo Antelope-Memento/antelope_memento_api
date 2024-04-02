@@ -1,6 +1,8 @@
 import { Model, DataTypes } from '@sequelize/core';
 import sequelize from '..';
 
+const tableName = sequelize.dialect.name === 'postgres' ? 'sync' : 'SYNC';
+
 class Sync extends Model {
     public sourceid!: number;
     public block_num!: number;
@@ -45,7 +47,7 @@ Sync.init(
     },
     {
         sequelize,
-        tableName: 'SYNC',
+        tableName,
         timestamps: false,
     }
 );
