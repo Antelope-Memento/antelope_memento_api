@@ -161,7 +161,7 @@ Example of a client-side javascript code:
 
 import { io } from 'socket.io-client';
 
-const socket = io('https://memento-streaming-dev.binfra.one', {
+const socket = io('https://memento.eu.eosamsterdam.net', {
     path: '/wax/socket.io',
     transports: ['websocket'],
 });
