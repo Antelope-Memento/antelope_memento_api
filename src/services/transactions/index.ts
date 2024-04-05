@@ -1,7 +1,6 @@
-import Sequelize, { QueryTypes, sql } from '@sequelize/core';
+import { QueryTypes, sql } from '@sequelize/core';
 import sequelize from '../../database';
 import Transaction from '../../database/models/transaction.model';
-import db from '../../utilities/db';
 
 export function format(transactions: Transaction[]) {
     return transactions.map(({ trace, ...tx }) => ({
@@ -11,7 +10,7 @@ export function format(transactions: Transaction[]) {
     }));
 }
 
-export async function getTraceTransactionsV2({
+export async function getTraceTransactions({
     accounts,
     fromBlock,
     toBlock,

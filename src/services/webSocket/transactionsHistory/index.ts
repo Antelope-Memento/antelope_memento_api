@@ -7,7 +7,9 @@ import {
     isNonEmptyArray,
     isNonEmptyArrayOfAccounts,
 } from '../../../utilities/helpers';
+
 import { assert } from 'ts-essentials';
+
 import * as syncService from '../../sync';
 import * as receiptsService from '../../receipts';
 import * as eventLogService from '../../eventLog';
@@ -319,12 +321,11 @@ async function emitTraceTransactions(
 ) {
     const { setSocketState } = getSocketStateActions(socket.id);
 
-    const transactionsHistory =
-        await transactionsService.getTraceTransactionsV2({
-            accounts,
-            fromBlock,
-            toBlock,
-        });
+    const transactionsHistory = await transactionsService.getTraceTransactions({
+        accounts,
+        fromBlock,
+        toBlock,
+    });
 
     if (isNonEmptyArray(transactionsHistory)) {
         const lastTransactionBlockNum = transactionsHistory[0].block_num;
