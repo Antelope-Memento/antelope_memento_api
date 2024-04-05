@@ -62,7 +62,7 @@ const resolvers = {
 
     async transaction(obj, args, context, info) {
         try {
-            return await txnController.graphql_get_transaction(args.trx_id);
+            return await txnController.graphQlGetTransaction(args.trx_id);
         } catch (err) {
             console.error(err.message);
             throw err;

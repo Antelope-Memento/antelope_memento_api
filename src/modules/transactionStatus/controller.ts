@@ -1,5 +1,4 @@
 import constant from '../../constants/config';
-import db from '../../utilities/db';
 import { Request, Response } from 'express';
 import * as syncService from '../../services/sync';
 import Transaction from '../../database/models/transaction.model';
@@ -15,7 +14,7 @@ async function readTransaction(trxId: string, skipTrace: boolean = false) {
         syncService.getIrreversibleBlockNumber(),
         Transaction.findOne({
             attributes: ['block_num', 'block_time'].concat(
-                !skipTrace ? [] : ['trace']
+                skipTrace ? [] : ['trace']
             ),
             where: {
                 trx_id: trxId,
@@ -38,50 +37,50 @@ async function readTransaction(trxId: string, skipTrace: boolean = false) {
 }
 
 // expressjs handlers
-export const get_transaction = async (req: Request, res: Response) => {
-    if (typeof req.query['trx_id'] !== 'string') {
+export const getTransaction = async (req: Request, res: Response) => {
+    const trxId = req.query['trx_id'];
+
+    if (typeof trxId !== 'string') {
         res.status(constant.HTTP_400_CODE);
         res.send('trx_id is required');
         return;
     }
 
-    readTransaction(req.query['trx_id']).then((rec) => {
+    const transaction = await readTransaction(trxId);
+
+    if (transaction.known) {
+        const { trace, ...rest } = transaction;
         res.status(constant.HTTP_200_CODE);
-        if (rec.known) {
-            res.write(
-                '{"known": true ' +
-                    ', "irreversible": ' +
-                    rec.irreversible +
-                    ',"data":'
-            );
-            res.write(rec.trace);
-            res.write('}');
-            res.end();
-        } else {
-            res.send(rec);
-        }
-    });
+        res.send({
+            ...rest,
+            data: JSON.parse(trace.toString('utf8')),
+        });
+    } else {
+        // send { known: false } if transaction is not found
+        res.send(transaction);
+    }
 };
 
-export const get_transaction_status = async (req: Request, res: Response) => {
-    if (typeof req.query['trx_id'] !== 'string') {
+export const getTransactionsStatus = async (req: Request, res: Response) => {
+    const trxId = req.query['trx_id'];
+
+    if (typeof trxId !== 'string') {
         res.status(constant.HTTP_400_CODE);
         res.send('trx_id is required');
         return;
     }
 
-    const transaction = await readTransaction(req.query['trx_id']);
-
     res.status(constant.HTTP_200_CODE);
-    res.send(transaction);
+    res.send(await readTransaction(trxId));
 };
 
 // graphQL handler
-export const graphql_get_transaction = async (trx_id: string) => {
-    const rec = await readTransaction(trx_id);
-    if (rec.trace != null) {
-        rec.data = JSON.parse(rec.trace.toString('utf8'));
-        delete rec.trace;
+export const graphQlGetTransaction = async (trx_id: string) => {
+    const transaction = await readTransaction(trx_id);
+
+    if (transaction.trace != null) {
+        transaction.data = JSON.parse(transaction.trace.toString('utf8'));
+        delete transaction.trace;
     }
-    return rec;
+    return transaction;
 };
