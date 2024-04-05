@@ -121,8 +121,8 @@ process.on('uncaughtException', function (error) {
     console.log('uncaughtException ' + error);
 });
 
-process.on('unhandledRejection', function (reason, p) {
-    console.log('unhandledRejection ' + reason);
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 module.exports = app;
