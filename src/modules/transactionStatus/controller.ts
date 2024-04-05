@@ -6,7 +6,9 @@ import Transaction from '../../database/models/transaction.model';
 const trxIdRegex = new RegExp(/[0-9a-f]{64}/);
 
 type ReadTransactionOutput = {
-    trace?: any;
+    block_time?: Date;
+    block_num?: number;
+    data?: any;
     irreversible?: boolean;
     known: boolean;
 };
@@ -33,10 +35,12 @@ async function readTransaction(
     ]);
 
     if (transaction) {
+        const { trace, ...rest } = transaction;
         return {
+            ...rest,
             known: true,
             irreversible: transaction.block_num <= irreversibleBlock,
-            trace: JSON.parse(transaction.trace.toString('utf8')),
+            data: JSON.parse(transaction.trace.toString('utf8')),
         };
     } else {
         return {
@@ -61,8 +65,9 @@ export const getTransaction = async (
     const transaction = await readTransaction(trxId);
 
     if (transaction.known) {
+        const { known, irreversible, data } = transaction;
         res.status(constant.HTTP_200_CODE);
-        res.send(transaction);
+        res.send({ known, irreversible, data });
     } else {
         // send { known: false } if transaction is not found
         res.status(constant.HTTP_404_CODE);
@@ -81,9 +86,10 @@ export const getTransactionsStatus = async (
         res.send('trx_id is required');
         return;
     }
+    const { data, ...rest } = await readTransaction(trxId);
 
     res.status(constant.HTTP_200_CODE);
-    res.send(await readTransaction(trxId));
+    res.send(rest);
 };
 
 type GraphQlGetTransactionOutput = Pick<
@@ -95,15 +101,5 @@ type GraphQlGetTransactionOutput = Pick<
 export const graphQlGetTransaction = async (
     trx_id: string
 ): Promise<GraphQlGetTransactionOutput> => {
-    const transaction = await readTransaction(trx_id);
-
-    if (transaction.trace != null) {
-        const { trace, ...rest } = transaction;
-        return {
-            ...rest,
-            data: transaction.trace,
-        };
-    } else {
-        return transaction;
-    }
+    return readTransaction(trx_id);
 };
