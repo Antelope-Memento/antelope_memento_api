@@ -34,9 +34,9 @@ async function readTransaction(
 
     if (transaction) {
         return {
-            trace: JSON.parse(transaction.trace.toString('utf8')),
-            irreversible: transaction.block_num <= irreversibleBlock,
             known: true,
+            irreversible: transaction.block_num <= irreversibleBlock,
+            trace: JSON.parse(transaction.trace.toString('utf8')),
         };
     } else {
         return {
