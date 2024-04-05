@@ -5,7 +5,16 @@ import Transaction from '../../database/models/transaction.model';
 
 const trxIdRegex = new RegExp(/[0-9a-f]{64}/);
 
-async function readTransaction(trxId: string, skipTrace: boolean = false) {
+type ReadTransactionOutput = {
+    trace?: any;
+    irreversible?: boolean;
+    known: boolean;
+};
+
+async function readTransaction(
+    trxId: string,
+    skipTrace: boolean = false
+): Promise<ReadTransactionOutput> {
     if (!trxIdRegex.test(trxId)) {
         throw new Error('invalid trx_id');
     }
@@ -25,7 +34,7 @@ async function readTransaction(trxId: string, skipTrace: boolean = false) {
 
     if (transaction) {
         return {
-            ...transaction,
+            trace: JSON.parse(transaction.trace.toString('utf8')),
             irreversible: transaction.block_num <= irreversibleBlock,
             known: true,
         };
@@ -37,7 +46,10 @@ async function readTransaction(trxId: string, skipTrace: boolean = false) {
 }
 
 // expressjs handlers
-export const getTransaction = async (req: Request, res: Response) => {
+export const getTransaction = async (
+    req: Request,
+    res: Response
+): Promise<void> => {
     const trxId = req.query['trx_id'];
 
     if (typeof trxId !== 'string') {
@@ -49,19 +61,19 @@ export const getTransaction = async (req: Request, res: Response) => {
     const transaction = await readTransaction(trxId);
 
     if (transaction.known) {
-        const { trace, ...rest } = transaction;
         res.status(constant.HTTP_200_CODE);
-        res.send({
-            ...rest,
-            data: JSON.parse(trace.toString('utf8')),
-        });
+        res.send(transaction);
     } else {
         // send { known: false } if transaction is not found
+        res.status(constant.HTTP_404_CODE);
         res.send(transaction);
     }
 };
 
-export const getTransactionsStatus = async (req: Request, res: Response) => {
+export const getTransactionsStatus = async (
+    req: Request,
+    res: Response
+): Promise<void> => {
     const trxId = req.query['trx_id'];
 
     if (typeof trxId !== 'string') {
@@ -74,13 +86,24 @@ export const getTransactionsStatus = async (req: Request, res: Response) => {
     res.send(await readTransaction(trxId));
 };
 
+type GraphQlGetTransactionOutput = Pick<
+    ReadTransactionOutput,
+    'irreversible' | 'known'
+> & { data?: any };
+
 // graphQL handler
-export const graphQlGetTransaction = async (trx_id: string) => {
+export const graphQlGetTransaction = async (
+    trx_id: string
+): Promise<GraphQlGetTransactionOutput> => {
     const transaction = await readTransaction(trx_id);
 
     if (transaction.trace != null) {
-        transaction.data = JSON.parse(transaction.trace.toString('utf8'));
-        delete transaction.trace;
+        const { trace, ...rest } = transaction;
+        return {
+            ...rest,
+            data: transaction.trace,
+        };
+    } else {
+        return transaction;
     }
-    return transaction;
 };
