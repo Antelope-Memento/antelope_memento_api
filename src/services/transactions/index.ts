@@ -2,6 +2,8 @@ import { QueryTypes, sql } from '@sequelize/core';
 import sequelize from '../../database';
 import Transaction from '../../database/models/transaction.model';
 
+export type Trace = any; // @todo: define trace type
+
 export function format(transactions: Transaction[]) {
     return transactions.map(({ trace, ...tx }) => ({
         ...tx,

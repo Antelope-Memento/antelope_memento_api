@@ -2,13 +2,14 @@ import constant from '../../constants/config';
 import { Request, Response } from 'express';
 import * as syncService from '../../services/sync';
 import Transaction from '../../database/models/transaction.model';
+import { Trace } from '../../services/transactions';
 
 const trxIdRegex = new RegExp(/[0-9a-f]{64}/);
 
 type ReadTransactionOutput = {
     block_time?: Date;
     block_num?: number;
-    data?: any;
+    data?: Trace;
     irreversible?: boolean;
     known: boolean;
 };
@@ -94,8 +95,8 @@ export const getTransactionsStatus = async (
 
 type GraphQlGetTransactionOutput = Pick<
     ReadTransactionOutput,
-    'irreversible' | 'known'
-> & { data?: any };
+    'irreversible' | 'known' | 'data'
+>;
 
 // graphQL handler
 export const graphQlGetTransaction = async (
