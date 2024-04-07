@@ -1,7 +1,7 @@
 import { Socket } from 'socket.io';
 import { State, SocketId, TransactionType, Args, SocketState } from './types';
 
-import { EVENT, EVENT_ERRORS } from '../../../constants/config';
+import constants from '../../../constants/config';
 import {
     isNumber,
     isNonEmptyArray,
@@ -14,6 +14,8 @@ import * as syncService from '../../sync';
 import * as receiptsService from '../../receipts';
 import * as eventLogService from '../../eventLog';
 import * as transactionsService from '../../transactions';
+
+const { EVENT, EVENT_ERRORS } = constants;
 
 const TRACE_TRANSACTIONS_BLOCKS_THRESHOLD =
     Number(process.env.WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD) ?? 100;
@@ -321,11 +323,12 @@ async function emitTraceTransactions(
 ) {
     const { setSocketState } = getSocketStateActions(socket.id);
 
-    const transactionsHistory = await transactionsService.getTraceTransactions({
-        accounts,
-        fromBlock,
-        toBlock,
-    });
+    const transactionsHistory =
+        await transactionsService.getWebSocketTraceTransactions({
+            accounts,
+            fromBlock,
+            toBlock,
+        });
 
     if (isNonEmptyArray(transactionsHistory)) {
         const lastTransactionBlockNum = transactionsHistory[0].block_num;
@@ -334,7 +337,8 @@ async function emitTraceTransactions(
         });
     }
 
-    const transactions = transactionsService.format(transactionsHistory);
+    const transactions =
+        transactionsService.webSocketFormat(transactionsHistory);
 
     if (isNonEmptyArray(transactions)) {
         socket.emit(EVENT.TRANSACTIONS_HISTORY, transactions, () => {
@@ -349,7 +353,10 @@ async function emitForkTransactions(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
-    const transactions = eventLogService.format(state.forks.data, accounts);
+    const transactions = eventLogService.webSocketFormat(
+        state.forks.data,
+        accounts
+    );
 
     if (isNonEmptyArray(transactions)) {
         socket.emit(EVENT.TRANSACTIONS_HISTORY, transactions, () => {

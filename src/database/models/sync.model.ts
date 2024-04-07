@@ -1,7 +1,7 @@
 import { Model, DataTypes } from '@sequelize/core';
-import sequelize from '..';
+import sequelize, { DIALECT } from '..';
 
-const tableName = sequelize.dialect.name === 'postgres' ? 'sync' : 'SYNC';
+const tableName = DIALECT === 'postgres' ? 'sync' : 'SYNC';
 
 class Sync extends Model {
     public sourceid!: number;

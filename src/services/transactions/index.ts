@@ -4,7 +4,7 @@ import Transaction from '../../database/models/transaction.model';
 
 export type Trace = any; // @todo: define trace type
 
-export function format(transactions: Transaction[]) {
+export function webSocketFormat(transactions: Transaction[]) {
     return transactions.map(({ trace, ...tx }) => ({
         ...tx,
         type: 'trace' as const,
@@ -12,7 +12,7 @@ export function format(transactions: Transaction[]) {
     }));
 }
 
-export async function getTraceTransactions({
+export async function getWebSocketTraceTransactions({
     accounts,
     fromBlock,
     toBlock,

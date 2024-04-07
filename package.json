@@ -16,6 +16,7 @@
         "cors": "^2.8.5",
         "dotenv": "^16.0.3",
         "express": "^5.0.0-beta.1",
+        "express-validator": "^7.0.1",
         "graphql": "^16.6.0",
         "graphql-http": "^1.13.0",
         "morgan": "^1.10.0",

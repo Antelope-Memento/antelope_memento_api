@@ -11,6 +11,7 @@ const CONFIG = {
     port: process.env[`${DATABASE}_DB_PORT`],
     dialect: process.env.DATABASE_SELECT?.toLowerCase(),
 };
+
 if (
     !CONFIG.name ||
     !CONFIG.username ||
@@ -18,6 +19,7 @@ if (
 ) {
     throw new Error('invalid database configuration');
 }
+
 const { name, username, password, host, port, dialect } = CONFIG;
 
 const sequelize = new Sequelize(name, username, password, {
@@ -26,5 +28,18 @@ const sequelize = new Sequelize(name, username, password, {
     port,
     logging: false, // displays the first parameter of the log function call if true
 });
+
+sequelize
+    .authenticate()
+    .then(() => {
+        console.log(`connected to ${dialect} ${name} database`);
+    })
+    .catch((err) => {
+        console.error(
+            `unable to connect to the ${dialect} ${name} database: ${err}`
+        );
+    });
+
+export const DIALECT = sequelize.dialect.name;
 
 export default sequelize;

@@ -1,7 +1,9 @@
-import constant from '../../constants/config';
-import sequelize from '../../database';
+import constants from '../../constants/config';
+import { DIALECT } from '../../database';
 import Sync from '../../database/models/sync.model';
 import { Request, Response } from 'express';
+
+const { HTTP_200_CODE, HTTP_400_CODE, HTTP_503_CODE } = constants;
 
 async function checkHealth() {
     // pg 2024-04-02T09:49:50.000Z
@@ -9,9 +11,7 @@ async function checkHealth() {
     const maxBlockTime = await Sync.max<number, Sync>('block_time');
 
     const block_time = new Date(
-        sequelize.dialect.name === 'postgres'
-            ? maxBlockTime + 'Z'
-            : maxBlockTime
+        DIALECT === 'postgres' ? maxBlockTime + 'Z' : maxBlockTime
     ).getTime();
     const now = new Date().getTime();
     const timeDiff = now - block_time;
@@ -25,12 +25,22 @@ async function checkHealth() {
 }
 
 export const health = async (_req: Request, res: Response) => {
-    const health = await checkHealth();
-    res.status(health.status ? constant.HTTP_200_CODE : constant.HTTP_503_CODE);
-    res.send(health);
+    try {
+        const health = await checkHealth();
+        res.status(health.status ? HTTP_200_CODE : HTTP_503_CODE);
+        res.send(health);
+    } catch (error) {
+        res.sendStatus(HTTP_400_CODE);
+        console.error((error as Error)?.message);
+    }
 };
 
 export const isHealthy = async (_req: Request, res: Response) => {
-    const health = await checkHealth();
-    res.send(health);
+    try {
+        const health = await checkHealth();
+        res.send(health);
+    } catch (error) {
+        res.sendStatus(HTTP_400_CODE);
+        console.error((error as Error)?.message);
+    }
 };

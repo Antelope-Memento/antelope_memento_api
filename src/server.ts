@@ -8,9 +8,11 @@ import { Server } from 'socket.io';
 import 'dotenv/config';
 
 import router from './routes/routes';
-import dbUtility from './utilities/db';
-import constant from './constants/config';
+import sequelize from './database';
+import constants from './constants/config';
 import { onConnection } from './services/webSocket';
+
+const { EVENT } = constants;
 
 const app = express();
 const server = http.createServer(app);
@@ -23,10 +25,11 @@ const io = new Server(server, {
     transports: ['websocket'],
 });
 
-io.on(constant.EVENT.CONNECTION, (socket) => {
+io.on(EVENT.CONNECTION, (socket) => {
     onConnection(socket, io);
 });
 
+// @todo: use `zod` or other library for validation
 const required_options = [
     'SERVER_BIND_IP',
     'SERVER_BIND_PORT',
@@ -66,8 +69,6 @@ app.use(`/${process.env.API_PATH_PREFIX}`, router);
 app.get(`/${process.env.API_PATH_PREFIX}`, (req, res) => {
     res.send('Memento API');
 });
-
-dbUtility.CreateConnectionPool();
 
 const port = Number(process.env.SERVER_BIND_PORT) || 12345;
 const bind_ip = process.env.SERVER_BIND_IP || '0.0.0.0';
@@ -110,7 +111,7 @@ function createClusteredServer(ip: string, port: number, clusterSize: number) {
 
 function gracefulExit() {
     console.log('Close DB connection');
-    dbUtility.CloseConnection();
+    sequelize.close();
     process.exit(0);
 }
 
@@ -125,4 +126,4 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-module.exports = app;
+export default app;

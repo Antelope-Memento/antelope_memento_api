@@ -1,5 +1,5 @@
 import { Op } from '@sequelize/core';
-import EventLog from '../../database/models/event_log.model';
+import EventLog from '../../database/models/eventLog.model';
 
 export async function getAll({
     fromId,
@@ -29,7 +29,7 @@ export async function getMaxEventLog(blockNum: number) {
     });
 }
 
-export function format(eventLogs: EventLog[], accounts: string[]) {
+export function webSocketFormat(eventLogs: EventLog[], accounts: string[]) {
     const parsedTraces = eventLogs.map(({ data, ...tx }) => ({
         ...tx,
         type: 'fork' as const,

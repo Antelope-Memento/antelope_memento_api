@@ -1,4 +1,4 @@
-import EventLog from '../../../database/models/event_log.model';
+import EventLog from '../../../database/models/eventLog.model';
 
 export type SocketId = string;
 

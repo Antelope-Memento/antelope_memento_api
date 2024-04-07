@@ -1,10 +1,11 @@
-import constant from '../../constants/config';
+import constants from '../../constants/config';
 import { Request, Response } from 'express';
 import * as syncService from '../../services/sync';
 import Transaction from '../../database/models/transaction.model';
 import { Trace } from '../../services/transactions';
+import { validationResult } from 'express-validator';
 
-const trxIdRegex = new RegExp(/[0-9a-f]{64}/);
+const { HTTP_200_CODE, HTTP_400_CODE, HTTP_404_CODE } = constants;
 
 type ReadTransactionOutput = {
     block_time?: Date;
@@ -18,10 +19,6 @@ async function readTransaction(
     trxId: string,
     skipTrace: boolean = false
 ): Promise<ReadTransactionOutput> {
-    if (!trxIdRegex.test(trxId)) {
-        throw new Error('invalid trx_id');
-    }
-
     const [irreversibleBlock, transaction] = await Promise.all([
         syncService.getIrreversibleBlockNumber(),
         Transaction.findOne({
@@ -55,24 +52,30 @@ export const getTransaction = async (
     req: Request,
     res: Response
 ): Promise<void> => {
-    const trxId = req.query['trx_id'];
-
-    if (typeof trxId !== 'string') {
-        res.status(constant.HTTP_400_CODE);
-        res.send('trx_id is required');
+    const validationRes = validationResult(req);
+    if (!validationRes.isEmpty()) {
+        res.status(HTTP_400_CODE);
+        res.send({ errors: validationRes.array() });
         return;
     }
 
-    const transaction = await readTransaction(trxId);
+    try {
+        const transaction = await readTransaction(
+            // safe to cast because it's validated
+            req.query.trx_id as string
+        );
 
-    if (transaction.known) {
-        const { known, irreversible, data } = transaction;
-        res.status(constant.HTTP_200_CODE);
-        res.send({ known, irreversible, data });
-    } else {
-        // send { known: false } if transaction is not found
-        res.status(constant.HTTP_404_CODE);
-        res.send(transaction);
+        if (transaction.known) {
+            const { known, irreversible, data } = transaction;
+            res.status(HTTP_200_CODE);
+            res.send({ known, irreversible, data });
+        } else {
+            res.status(HTTP_404_CODE);
+            res.send(transaction); // { known: false }
+        }
+    } catch (error) {
+        res.sendStatus(HTTP_400_CODE);
+        console.error((error as Error)?.message);
     }
 };
 
@@ -80,17 +83,24 @@ export const getTransactionsStatus = async (
     req: Request,
     res: Response
 ): Promise<void> => {
-    const trxId = req.query['trx_id'];
-
-    if (typeof trxId !== 'string') {
-        res.status(constant.HTTP_400_CODE);
-        res.send('trx_id is required');
+    const validationRes = validationResult(req);
+    if (!validationRes.isEmpty()) {
+        res.status(HTTP_400_CODE);
+        res.send({ errors: validationRes.array() });
         return;
     }
-    const { data, ...rest } = await readTransaction(trxId);
+    try {
+        const { data, ...rest } = await readTransaction(
+            // safe to cast because it's validated
+            req.query.trx_id as string
+        );
 
-    res.status(constant.HTTP_200_CODE);
-    res.send(rest);
+        res.status(HTTP_200_CODE);
+        res.send(rest);
+    } catch (error) {
+        res.sendStatus(HTTP_400_CODE);
+        console.error((error as Error)?.message);
+    }
 };
 
 type GraphQlGetTransactionOutput = Pick<

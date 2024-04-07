@@ -1,210 +1,177 @@
-const constant = require('../../constants/config');
-const db = require('../../utilities/db');
-const txn = require('../transactionStatus/controller');
+import { Request, Response } from 'express';
+import { validationResult } from 'express-validator';
+import constants from '../../constants/config';
 
-const uintRegex = new RegExp(/^[0-9]+$/);
-const intRegex = new RegExp(/^-?[0-9]+$/);
-const nameRegex = new RegExp(/^[a-z1-5.]{1,13}$/);
-const actionFilterRegex = new RegExp(/^[a-z1-5.]{1,13}:[a-z1-5.]{1,13}$/);
+import { Op, QueryTypes, sql } from '@sequelize/core';
+import sequelize from '../../database';
 
-var controller = function () {};
+import { AccountHistoryQuery, GetPosQuery } from './types';
 
-// send array of traces into the HTTP response
-async function sendTraces(res, traces, irreversibleBlock) {
-    res.status(constant.HTTP_200_CODE);
-    res.write('{"data":[');
-    traces.forEach((item, i) => {
-        if (i > 0) {
-            res.write(',');
-        }
-        res.write('{"pos":' + item.pos + ',"trace":');
-        res.write(item.trace);
-        res.write('}');
+import * as syncService from '../../services/sync';
+import * as maxRecvSequenceService from '../../services/resSequenceMax';
+import { timestampToQuery } from '../../utilities/helpers';
+import { Trace } from '../../services/transactions';
+
+const { HTTP_200_CODE, HTTP_400_CODE } = constants;
+
+function formatHistoryData(
+    data: { pos: number; trace: Buffer }[],
+    last_irreversible_block: number
+): { data: { pos: number; trace: Trace }[]; last_irreversible_block: number } {
+    const result = {
+        data: new Array(),
+        last_irreversible_block,
+    };
+
+    data.forEach(({ pos, trace }) => {
+        result.data.push({ pos, trace: JSON.parse(trace.toString('utf8')) });
     });
 
-    res.write('],"last_irreversible_block":' + irreversibleBlock);
-    res.write('}');
-    res.end();
+    return result;
 }
 
-// prepare array of traces for graphql output
-function formatHistoryData(traces, irreversibleBlock) {
-    let ret = {};
-    ret.data = new Array();
-    traces.forEach((item) => {
-        ret.data.push({
-            pos: item.pos,
-            trace: JSON.parse(item.trace.toString('utf8')),
-        });
-    });
+async function retrieveAccountHistory(args: {
+    account: string;
+    irreversible?: boolean;
+    pos?: number;
+    action_filter?: string;
+    max_count?: number;
+}): Promise<[number, { pos: number; trace: Buffer }[]]> {
+    const { account, irreversible, pos, action_filter, max_count } = args;
+    const lastIrreversibleBlock =
+        await syncService.getIrreversibleBlockNumber();
 
-    ret.last_irreversible_block = irreversibleBlock;
-    return ret;
+    let position = pos ?? -1 * Number(process.env.MAX_RECORD_COUNT);
+
+    if (position < 0) {
+        const maxRecvSequence =
+            await maxRecvSequenceService.getMaxRecvSequence(account);
+        position = Number(maxRecvSequence) + position + 1;
+    }
+
+    const limit = Math.min(
+        Number(process.env.MAX_RECORD_COUNT),
+        max_count ?? Infinity
+    );
+    console.log({ account });
+    const queryResult = await sequelize.query<{
+        pos: number;
+        trace: Buffer;
+    }>(
+        sql`
+        SELECT pos, trace
+        FROM (
+            SELECT DISTINCT seq, min(recv_sequence) AS pos
+            FROM RECEIPTS
+            WHERE ${sql.where({
+                receiver: account,
+                recv_sequence: { [Op.gte]: position },
+                ...(action_filter && {
+                    contract: action_filter.split(':')[0],
+                    action: action_filter.split(':')[1],
+                }),
+                ...(irreversible && {
+                    block_num: { [Op.lte]: lastIrreversibleBlock },
+                }),
+            })}
+            GROUP BY seq
+            ORDER by seq
+            LIMIT :limit
+        ) as X
+        INNER JOIN TRANSACTIONS ON X.seq = TRANSACTIONS.seq
+    `,
+        {
+            replacements: { limit },
+            type: QueryTypes.SELECT,
+        }
+    );
+
+    return [lastIrreversibleBlock, queryResult];
 }
 
-async function GetMaxRecvSequence(account) {
-    return new Promise((resolve, reject) => {
-        db.ExecuteQuery(
-            "select recv_sequence_max from RECV_SEQUENCE_MAX where account_name='" +
-                account +
-                "'",
-            (data) => {
-                if (data.length > 0) {
-                    resolve(parseInt(data[0].recv_sequence_max));
-                } else {
-                    resolve(0);
-                }
-            }
-        );
-    });
-}
-
-async function retrieveAccountHistory(args) {
-    let account = args['account'];
-    if (account === undefined) {
-        return Promise.reject(new Error('missing account argument'));
-    }
-
-    if (!nameRegex.test(account)) {
-        return Promise.reject(
-            new Error('invalid value in account: ' + args['account'])
-        );
-    }
-
-    let last_irreversible_block = await db.GetIrreversibleBlockNumber();
-
-    let irrev = false;
-    if (args['irreversible'] !== undefined) {
-        if (args['irreversible'] == 'true' || args['irreversible'] === true) {
-            irrev = true;
+async function retrievePos({
+    account,
+    timestamp,
+}: {
+    account: string;
+    timestamp: string;
+}) {
+    const query = await sequelize.query<{ pos: number }>(
+        // didn't call sql interpolation function because of the timestamp
+        `
+    SELECT MIN(recv_sequence) AS pos
+    FROM RECEIPTS
+    WHERE receiver = :account
+    AND block_time = (
+        SELECT min(block_time)
+        FROM RECEIPTS
+        WHERE receiver = :account
+        AND block_time >= ${timestampToQuery(timestamp)}
+    )`,
+        {
+            replacements: { account },
+            type: QueryTypes.SELECT,
         }
-    }
+    );
 
-    let pos = -1 * process.env.MAX_RECORD_COUNT;
+    const position = Number(query[0]?.pos);
 
-    if (args['pos'] !== undefined) {
-        pos = args['pos'];
-        if (!intRegex.test(pos)) {
-            throw Error('invalid value for pos: ' + pos);
-        }
-        pos = parseInt(pos);
-    }
-
-    if (pos < 0) {
-        pos = (await GetMaxRecvSequence(account)) + pos + 1;
-    }
-
-    let whereClause = "receiver='" + account + "' AND recv_sequence >= " + pos;
-
-    let action_filter = args['action_filter'];
-    if (action_filter !== undefined) {
-        if (!actionFilterRegex.test(action_filter)) {
-            throw Error('invalid value for action_filter: ' + action_filter);
-        }
-
-        let filter = action_filter.split(':');
-        whereClause +=
-            " AND contract='" + filter[0] + "' AND action='" + filter[1] + "'";
-    }
-
-    if (irrev) {
-        whereClause += ' AND block_num <= ' + last_irreversible_block;
-    }
-
-    let limit = process.env.MAX_RECORD_COUNT;
-    let max_count = args['max_count'];
-    if (max_count !== undefined) {
-        if (!uintRegex.test(max_count)) {
-            throw Error('invalid value for max_count: ' + max_count);
-        }
-
-        max_count = parseInt(max_count);
-        if (limit > max_count) {
-            limit = max_count;
-        }
-    }
-
-    let query =
-        'SELECT pos, trace FROM (SELECT DISTINCT seq, min(recv_sequence) AS pos FROM RECEIPTS ' +
-        'WHERE ' +
-        whereClause +
-        ' GROUP BY seq ORDER by seq LIMIT ' +
-        limit +
-        ') as X INNER JOIN TRANSACTIONS ON X.seq = TRANSACTIONS.seq';
-
-    return [last_irreversible_block, await db.ExecuteQueryAsync(query)];
-}
-
-async function retrievePos(args) {
-    let account = args['account'];
-    if (account === undefined) {
-        return Promise.reject(new Error('missing account argument'));
-    }
-
-    if (!nameRegex.test(account)) {
-        return Promise.reject(
-            new Error('invalid value in account: ' + args['account'])
-        );
-    }
-
-    let timestamp = args['timestamp'];
-    if (timestamp === undefined) {
-        return Promise.reject(new Error('missing timestamp argument'));
-    }
-
-    const ts = Date.parse(timestamp);
-    if (Number.isNaN(ts)) {
-        return Promise.reject(
-            new Error('cannot parse the timestamp: ' + timestamp)
-        );
-    }
-
-    let query =
-        "SELECT MIN(recv_sequence) as pos FROM RECEIPTS WHERE receiver='" +
-        account +
-        "' AND block_time = " +
-        "(SELECT min(block_time) FROM RECEIPTS WHERE receiver='" +
-        account +
-        "' AND block_time >= ";
-    if (db.is_mysql) {
-        query += 'FROM_UNIXTIME(' + ts / 1000 + '))';
-    } else {
-        query += 'to_timestamp(' + ts / 1000 + '))';
-    }
-
-    return new Promise((resolve, reject) => {
-        db.ExecuteQuery(query, (data) => {
-            if (data.length > 0) {
-                resolve(parseInt(data[0].pos));
-            } else {
-                resolve(Number.NaN);
-            }
-        });
-    });
+    return position > 0 ? position : Number(NaN);
 }
 
 // expressjs handlers
+export const getAccountHistory = async (req: Request, res: Response) => {
+    const validationRes = validationResult(req);
+    if (!validationRes.isEmpty()) {
+        res.status(HTTP_400_CODE);
+        res.send({ errors: validationRes.array() });
+        return;
+    }
 
-controller.get_account_history = async (req, res) => {
-    let result = await retrieveAccountHistory(req.query);
-    return sendTraces(res, result[1], result[0]);
+    try {
+        const [irreversibleBlock, accountHistory] =
+            await retrieveAccountHistory(
+                // safe to cast because it's validated
+                req.query as unknown as AccountHistoryQuery
+            );
+
+        res.status(HTTP_200_CODE);
+        res.send(formatHistoryData(accountHistory, irreversibleBlock));
+    } catch (error) {
+        res.sendStatus(HTTP_400_CODE);
+        console.error((error as Error)?.message);
+    }
 };
 
-controller.get_pos = async (req, res) => {
-    let pos = await retrievePos(req.query);
-    res.status(constant.HTTP_200_CODE);
-    res.send(pos);
+export const getPos = async (req: Request, res: Response) => {
+    const validationRes = validationResult(req);
+    if (!validationRes.isEmpty()) {
+        res.status(HTTP_400_CODE);
+        res.send({ errors: validationRes.array() });
+        return;
+    }
+
+    try {
+        res.status(HTTP_200_CODE);
+        res.send(
+            await retrievePos(
+                // safe to cast because it's validated
+                req.query as unknown as GetPosQuery
+            )
+        );
+    } catch (error) {
+        res.sendStatus(HTTP_400_CODE);
+        console.error((error as Error)?.message);
+    }
 };
 
 // graphql handlers
-
-controller.graphql_account_history = async (args) => {
-    let result = await retrieveAccountHistory(args);
-    return formatHistoryData(result[1], result[0]);
+export const graphQlAccountHistory = async (args: AccountHistoryQuery) => {
+    const [irreversibleBlock, accountHistory] =
+        await retrieveAccountHistory(args);
+    return formatHistoryData(accountHistory, irreversibleBlock);
 };
 
-controller.graphql_get_pos = async (args) => {
+export const graphQlGetPos = async (args: GetPosQuery) => {
     return await retrievePos(args);
 };
-
-module.exports = controller;

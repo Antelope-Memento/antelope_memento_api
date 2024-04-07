@@ -1,3 +1,5 @@
+import { DIALECT } from '../database';
+
 function hasProperties<T extends object>(
     obj: T,
     properties: (keyof T)[]
@@ -32,9 +34,9 @@ function isNumber(value: unknown): value is number {
     return typeof value === 'number' && !isNaN(value);
 }
 
-function timestampToQuery(timestamp: string, isMysql: boolean): string {
+function timestampToQuery(timestamp: string): string {
     const timestampInMilliseconds = Date.parse(timestamp) / 1000;
-    return isMysql
+    return DIALECT === 'mysql'
         ? `FROM_UNIXTIME('${timestampInMilliseconds}')`
         : `to_timestamp('${timestampInMilliseconds}')`;
 }

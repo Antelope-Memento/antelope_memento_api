@@ -1,4 +1,4 @@
-module.exports = {
+export default {
     STATUS_SUCCESS: 'success',
     STATUS_FAILURE: 'failure',
     DATA_SEND_ERROR: 'Data send error',
@@ -30,6 +30,7 @@ module.exports = {
 
         TRANSACTIONS_HISTORY: 'transactions_history',
     },
+
     EVENT_ERRORS: {
         INVALID_ARGS: 'Invalid arguments',
         INVALID_ACCOUNTS: 'Invalid accounts',

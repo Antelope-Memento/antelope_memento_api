@@ -1,5 +1,5 @@
 import { Socket, Server } from 'socket.io';
-import constant from '../../constants/config';
+import constants from '../../constants/config';
 import {
     onTransactionsHistory,
     getSocketStateActions as getTransactionsHistorySocketStateActions,
@@ -7,13 +7,15 @@ import {
 } from './transactionsHistory';
 import { Args } from './transactionsHistory/types';
 
+const { EVENT } = constants;
+
 function onConnection(socket: Socket, io: Server) {
     manageForkTransactionsWriting(io.sockets.sockets.size);
 
-    socket.on(constant.EVENT.TRANSACTIONS_HISTORY, (args: Args) => {
+    socket.on(EVENT.TRANSACTIONS_HISTORY, (args: Args) => {
         onTransactionsHistory(socket, args);
     });
-    socket.on(constant.EVENT.DISCONNECT, () => {
+    socket.on(EVENT.DISCONNECT, () => {
         manageForkTransactionsWriting(io.sockets.sockets.size);
         getTransactionsHistorySocketStateActions(socket.id).clearSocketState();
     });

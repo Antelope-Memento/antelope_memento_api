@@ -1,8 +1,7 @@
 import { Model, DataTypes } from '@sequelize/core';
-import sequelize from '..';
+import sequelize, { DIALECT } from '..';
 
-const tableName =
-    sequelize.dialect.name === 'postgres' ? 'event_log' : 'EVENT_LOG';
+const tableName = DIALECT === 'postgres' ? 'event_log' : 'EVENT_LOG';
 
 class EventLog extends Model {
     public id!: number;

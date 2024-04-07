@@ -1,8 +1,7 @@
 import { Model, DataTypes } from '@sequelize/core';
-import sequelize from '..';
+import sequelize, { DIALECT } from '..';
 
-const tableName =
-    sequelize.dialect.name === 'postgres' ? 'receipts' : 'RECEIPTS';
+const tableName = DIALECT === 'postgres' ? 'receipts' : 'RECEIPTS';
 
 class Receipt extends Model {
     public seq!: number;

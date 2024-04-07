@@ -2,7 +2,8 @@ import { createHandler } from 'graphql-http/lib/use/express';
 import { makeExecutableSchema } from '@graphql-tools/schema';
 
 import * as txnController from '../transactionStatus/controller';
-import * as historyController from '../history/controller.js';
+import * as historyController from '../history/controller';
+import { AccountHistoryQuery, GetPosQuery } from '../history/types';
 
 // Construct a schema, using GraphQL schema language
 const sdlSchema = `
@@ -36,40 +37,25 @@ const sdlSchema = `
 
 // resolver function for each API endpoint
 const resolvers = {
-    async account_history(
-        obj: unknown,
-        args: unknown,
-        context: unknown,
-        info: unknown
-    ) {
+    async account_history(_obj: unknown, args: AccountHistoryQuery) {
         try {
-            return await historyController.graphql_account_history(args);
+            return await historyController.graphQlAccountHistory(args);
         } catch (err) {
             console.error((err as Error)?.message);
             throw err;
         }
     },
 
-    async get_pos(
-        obj: unknown,
-        args: unknown,
-        context: unknown,
-        info: unknown
-    ) {
+    async get_pos(_obj: unknown, args: GetPosQuery) {
         try {
-            return await historyController.graphql_get_pos(args);
+            return await historyController.graphQlGetPos(args);
         } catch (err) {
             console.error((err as Error)?.message);
             throw err;
         }
     },
 
-    async transaction(
-        obj: unknown,
-        args: { trx_id: string },
-        context: unknown,
-        info: unknown
-    ) {
+    async transaction(_obj: unknown, args: { trx_id: string }) {
         try {
             return await txnController.graphQlGetTransaction(args.trx_id);
         } catch (err) {
