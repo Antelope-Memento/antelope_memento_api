@@ -122,8 +122,8 @@ process.on('uncaughtException', function (error) {
     console.log('uncaughtException ' + error);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+process.on('unhandledRejection', (_reason, promise) => {
+    console.error('Unhandled Rejection at:', promise);
 });
 
 export default app;
