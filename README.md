@@ -291,7 +291,9 @@ apt-get install -y nodejs
 git clone https://github.com/Antelope-Memento/antelope_memento_api.git /opt/antelope_memento_api
 cd /opt/antelope_memento_api
 npm ci
+npm run build
 cp systemd/memento_api\@.service /etc/systemd/system/
+systemctl daemon-reload
 
 # example for a WAX MySQL database
 cat >/etc/opt/memento_api_wax.env <<'EOT'
