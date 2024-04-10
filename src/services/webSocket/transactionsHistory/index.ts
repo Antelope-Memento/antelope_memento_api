@@ -37,6 +37,9 @@ function manageForkTransactionsWriting(connectionsCount: number) {
 
     // start writing the fork transactions if there are active socket connections
     if (shouldWrite) {
+        console.log(
+            `Starting to write fork transactions, active connections: ${connectionsCount}`
+        );
         state.forks.intervalId = setInterval(async () => {
             if (
                 // check for any active socket connections with 'fork' transaction type
@@ -122,18 +125,24 @@ function onTransactionsHistory(socket: Socket, args: Args) {
     const { valid, message } = validateArgs(args);
 
     if (!valid) {
-        socket.emit(EVENT.ERROR, message ?? EVENT_ERRORS.INVALID_ARGS);
+        const errorMessage = message ?? EVENT_ERRORS.INVALID_ARGS;
+        socket.emit(EVENT.ERROR, errorMessage);
 
         // abort the connection after 1 second if the arguments are invalid
         setTimeout(() => socket.disconnect(), 1000);
+        console.error(
+            `Disconnecting the socket ${socket.id} due to invalid arguments: ${errorMessage}`
+        );
         return;
     }
-    const { initializeSocketState, setSocketState, getSocketState } =
-        getSocketStateActions(socket.id);
+    const { initializeSocketState, getSocketState } = getSocketStateActions(
+        socket.id
+    );
 
     // initialize the state for the socket connection (only once per connection)
     if (!getSocketState()) {
         initializeSocketState(args);
+        console.log('Socket state initialized:', socket.id);
     }
 
     emitTransactionsHistory(socket);
@@ -180,6 +189,7 @@ async function emitTransactionsHistory(socket: Socket) {
     });
 
     if (shouldSwitchToTrace) {
+        console.log(`Switching to trace type for socket: ${socket.id}`);
         setSocketState({
             transactionType: 'trace',
         });
@@ -188,6 +198,7 @@ async function emitTransactionsHistory(socket: Socket) {
     }
 
     if (shouldSwitchToFork) {
+        console.log(`Switching to fork type for socket: ${socket.id}`);
         setSocketState({
             transactionType: 'fork',
         });

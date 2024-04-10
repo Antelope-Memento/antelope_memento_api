@@ -10,6 +10,8 @@ import { Args } from './transactionsHistory/types';
 const { EVENT } = constants;
 
 function onConnection(socket: Socket, io: Server) {
+    console.log('New socket connection:', socket.id);
+
     manageForkTransactionsWriting(io.sockets.sockets.size);
 
     socket.on(EVENT.TRANSACTIONS_HISTORY, (args: Args) => {
@@ -18,6 +20,8 @@ function onConnection(socket: Socket, io: Server) {
     socket.on(EVENT.DISCONNECT, () => {
         manageForkTransactionsWriting(io.sockets.sockets.size);
         getTransactionsHistorySocketStateActions(socket.id).clearSocketState();
+
+        console.log('Socket disconnected:', socket.id);
     });
 }
 
