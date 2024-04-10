@@ -100,6 +100,7 @@ function getSocketStateActions(socketId: SocketId) {
                 lastTransactionBlockNum: 0,
                 transactionType: args.irreversible ? 'trace' : 'fork',
             };
+            console.log('Socket state initialized for socket:', socketId);
         },
         getSocketState: () => state.connectedSockets[socketId],
         setSocketState: (updatedState: Partial<SocketState>): void => {
@@ -117,6 +118,7 @@ function getSocketStateActions(socketId: SocketId) {
             if (state.connectedSockets[socketId]) {
                 delete state.connectedSockets[socketId];
             }
+            console.log('Cleared socket state for socket:', socketId);
         },
     };
 }
@@ -142,7 +144,6 @@ function onTransactionsHistory(socket: Socket, args: Args) {
     // initialize the state for the socket connection (only once per connection)
     if (!getSocketState()) {
         initializeSocketState(args);
-        console.log('Socket state initialized:', socket.id);
     }
 
     emitTransactionsHistory(socket);
@@ -157,10 +158,11 @@ async function emitTransactionsHistory(socket: Socket) {
         await syncService.getIrreversibleBlockNumber();
 
     const state = getSocketState();
-    assert(
-        state,
-        `emitTransactionsHistory: socket state not found for socket: ${socket.id}`
-    );
+
+    if (!state) {
+        return; // do the silent return here because the socket may have been disconnected
+    }
+
     const {
         lastTransactionBlockNum,
         transactionType,
