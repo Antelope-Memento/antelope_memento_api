@@ -1,5 +1,5 @@
 import constants from '../../constants/config';
-import { DIALECT } from '../../database';
+import sequelize, { DIALECT } from '../../database';
 import Sync from '../../database/models/sync.model';
 import { Request, Response } from 'express';
 
@@ -33,7 +33,7 @@ export const health = async (_req: Request, res: Response) => {
         res.sendStatus(HTTP_400_CODE);
         console.error((error as Error)?.message);
     }
-};
+}; 
 
 export const isHealthy = async (_req: Request, res: Response) => {
     try {
