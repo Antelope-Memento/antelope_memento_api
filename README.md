@@ -152,7 +152,7 @@ The following queries are supported:
 
 ## Web Sockets
 
-The API supports Web Sockets for real-time updates. We use socket.io for the Web Socket interface. The client can subscribe to the `transactions_history` event, which start emitting the transaction data based on the provided parameters.
+The API supports Web Sockets for real-time updates. We use socket.io for the Web Socket interface. The client can subscribe to the `transaction_history` event, which start emitting the transaction data based on the provided parameters.
 
 Example of a client-side javascript code:
 
@@ -169,8 +169,8 @@ const socket = io('https://memento-streaming-dev.binfra.one', {
 socket.on('connect', () => {
     console.log('connected to memento-api websocket');
 
-    // subscribe to the transactions_history event after the connection is established
-    socket.emit('transactions_history', {
+    // subscribe to the transaction_history event after the connection is established
+    socket.emit('transaction_history', {
         accounts: ['account1', 'account2'], // array of account names, required
         start_block: 298284392, // start reading from the block_num, optional (head block is used by default)
         irreversible: true, // only irreversible transactions, optional (false by default)
@@ -182,7 +182,7 @@ socket.on('disconnect', () => {
 });
 
 // start receiving the transaction data
-socket.on('transactions_history', (data, ack) => {
+socket.on('transaction_history', (data, ack) => {
     console.log(data);
     ack(); // acknowledge the receipt of the data, required (otherwise the server will stop sending data)
 });
@@ -192,7 +192,7 @@ socket.on('error', (error) => {
 });
 ```
 
-Example of 'transactions_history' event data:
+Example of 'transaction_history' event data:
 
 ```json
 [

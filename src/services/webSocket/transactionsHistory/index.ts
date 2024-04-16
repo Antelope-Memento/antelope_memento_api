@@ -354,7 +354,7 @@ async function emitTraceTransactions(
         transactionsService.webSocketFormat(transactionsHistory);
 
     if (isNonEmptyArray(transactions)) {
-        socket.emit(EVENT.TRANSACTIONS_HISTORY, transactions, () => {
+        socket.emit(EVENT.TRANSACTION_HISTORY, transactions, () => {
             scheduleNextEmit(socket);
         });
     } else {
@@ -372,7 +372,7 @@ async function emitForkTransactions(
     );
 
     if (isNonEmptyArray(transactions)) {
-        socket.emit(EVENT.TRANSACTIONS_HISTORY, transactions, () => {
+        socket.emit(EVENT.TRANSACTION_HISTORY, transactions, () => {
             scheduleNextEmit(socket);
         });
     } else {

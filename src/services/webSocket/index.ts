@@ -19,8 +19,10 @@ function onConnection(socket: Socket, io: Server) {
     );
     manageForkTransactionsWriting(io.sockets.sockets.size);
 
-    socket.on(EVENT.TRANSACTIONS_HISTORY, (args: Args) => {
-        `Client with IP: ${socket.handshake.address} listening for ${EVENT.TRANSACTIONS_HISTORY} event.`
+    socket.on(EVENT.TRANSACTION_HISTORY, (args: Args) => {
+        console.log(
+            `Client with IP: ${socket.handshake.address} listening for ${EVENT.TRANSACTION_HISTORY} event.`
+        );
         onTransactionsHistory(socket, args);
     });
 

@@ -28,7 +28,7 @@ export default {
         DISCONNECT: 'disconnect',
         ERROR: 'error',
 
-        TRANSACTIONS_HISTORY: 'transactions_history',
+        TRANSACTION_HISTORY: 'transaction_history',
     },
 
     EVENT_ERRORS: {
