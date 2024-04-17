@@ -21,7 +21,7 @@ function onConnection(socket: Socket, io: Server) {
 
     socket.on(EVENT.TRANSACTION_HISTORY, (args: Args) => {
         console.log(
-            `Client with IP: ${socket.handshake.address} listening for ${EVENT.TRANSACTION_HISTORY} event.`
+            `Client with IP: ${socket.handshake.address} listening for ${EVENT.TRANSACTION_HISTORY} event, accounts:(${args.accounts}).`
         );
         onTransactionsHistory(socket, args);
     });
