@@ -214,6 +214,7 @@ async function emitTransactionsHistory(socket: Socket) {
         startBlock,
         lastIrreversibleBlock,
         irreversible,
+        headBlock,
     });
 }
 
@@ -269,12 +270,14 @@ async function emitTransactionsBasedOnType({
     startBlock,
     lastIrreversibleBlock,
     irreversible,
+    headBlock,
 }: {
     socket: Socket;
     accounts: Args['accounts'];
     startBlock: number;
     lastIrreversibleBlock: number;
     irreversible: Args['irreversible'];
+    headBlock: number;
 }) {
     const { getSocketState } = getSocketStateActions(socket.id);
 
@@ -286,33 +289,38 @@ async function emitTransactionsBasedOnType({
 
     switch (state.transactionType) {
         case 'trace': {
-            const count = await receiptsService.getCount({
-                accounts,
-                fromBlock: startBlock,
-                toBlock: startBlock + TRACE_TRANSACTIONS_BLOCKS_THRESHOLD,
-            });
-
-            const threshold = calculateTraceTxsBlockThreshold(
-                count,
-                startBlock
-            );
-
-            const toBlock = irreversible
-                ? Math.min(threshold, lastIrreversibleBlock)
-                : threshold;
-
-            const shouldExecute =
-                startBlock < toBlock && lastIrreversibleBlock !== toBlock;
-
-            if (shouldExecute) {
-                emitTraceTransactions(socket, {
+            let shouldExecute = true;
+            while (shouldExecute) {
+                const count = await receiptsService.getCount({
                     accounts,
                     fromBlock: startBlock,
-                    toBlock,
+                    toBlock: startBlock + TRACE_TRANSACTIONS_BLOCKS_THRESHOLD,
                 });
-            } else {
-                scheduleNextEmit(socket);
+
+                const threshold = calculateTraceTxsBlockThreshold(
+                    count,
+                    startBlock
+                );
+
+                const toBlock = irreversible
+                    ? Math.min(threshold, lastIrreversibleBlock)
+                    : threshold;
+
+                shouldExecute =
+                    startBlock < toBlock &&
+                    lastIrreversibleBlock !== toBlock &&
+                    toBlock <= headBlock;
+
+                if (shouldExecute) {
+                    await emitTraceTransactions(socket, {
+                        accounts,
+                        fromBlock: startBlock,
+                        toBlock,
+                    });
+                    startBlock = toBlock;
+                }
             }
+            scheduleNextEmit(socket);
             break;
         }
         case 'fork': {
@@ -354,11 +362,7 @@ async function emitTraceTransactions(
         transactionsService.webSocketFormat(transactionsHistory);
 
     if (isNonEmptyArray(transactions)) {
-        socket.emit(EVENT.TRANSACTION_HISTORY, transactions, () => {
-            scheduleNextEmit(socket);
-        });
-    } else {
-        scheduleNextEmit(socket);
+        socket.emit(EVENT.TRANSACTION_HISTORY, transactions, () => {});
     }
 }
 
