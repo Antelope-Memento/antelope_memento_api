@@ -311,14 +311,14 @@ async function emitTransactionsBasedOnType({
                     lastIrreversibleBlock !== toBlock &&
                     toBlock <= headBlock;
 
-                if (shouldExecute) {
+                if (shouldExecute && count !== 0) {
                     await emitTraceTransactions(socket, {
                         accounts,
                         fromBlock: startBlock,
                         toBlock,
                     });
-                    startBlock = toBlock;
                 }
+                startBlock = toBlock;
             }
             scheduleNextEmit(socket);
             break;
