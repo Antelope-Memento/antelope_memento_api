@@ -36,9 +36,17 @@ export function webSocketFormat(eventLogs: EventLog[], accounts: string[]) {
         data: JSON.parse(data.toString('utf8')),
     }));
 
-    return parsedTraces.filter((tx) =>
-        (tx.data.trace.action_traces as { receiver: string }[]).some(
-            ({ receiver }) => accounts.includes(receiver)
+    return parsedTraces
+        .filter((tx) =>
+            (tx.data.trace.action_traces as { receiver: string }[]).some(
+                ({ receiver }) => accounts.includes(receiver)
+            )
         )
-    );
+        .map((tx) => {
+            tx.id && delete (tx as { id?: unknown }).id;
+            return {
+                ...tx,
+                data: null,
+            };
+        });
 }
