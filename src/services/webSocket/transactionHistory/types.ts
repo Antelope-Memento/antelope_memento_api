@@ -6,8 +6,7 @@ export type SocketId = string;
  * - 'trace' - transactions that cannot be reverted
  * - 'fork' - transactions that can be reverted
  */
-export type TransactionType = 'trace' | 'fork';
-
+export type EventType = 'trace' | 'fork';
 export interface State {
     connectedSockets: {
         [key: SocketId]: SocketState;
@@ -21,7 +20,7 @@ export interface State {
 
 export interface SocketState {
     args: Args;
-    transactionType: TransactionType;
+    eventType: EventType;
     lastTransactionBlockNum: number;
 }
 

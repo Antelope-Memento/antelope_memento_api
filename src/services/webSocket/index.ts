@@ -1,11 +1,11 @@
 import { Socket, Server } from 'socket.io';
 import constants from '../../constants/config';
 import {
-    onTransactionsHistory,
+    onTransactionHistory,
     getSocketStateActions as getTransactionsHistorySocketStateActions,
-    manageForkTransactionsWriting,
-} from './transactionsHistory';
-import { Args } from './transactionsHistory/types';
+    manageForkEventSaveInState,
+} from './transactionHistory';
+import { Args } from './transactionHistory/types';
 
 const { EVENT } = constants;
 
@@ -17,17 +17,17 @@ function onConnection(socket: Socket, io: Server) {
     const { clearSocketState } = getTransactionsHistorySocketStateActions(
         socket.id
     );
-    manageForkTransactionsWriting(io.sockets.sockets.size);
+    manageForkEventSaveInState(io.sockets.sockets.size);
 
     socket.on(EVENT.TRANSACTION_HISTORY, (args: Args) => {
         console.log(
             `Client with IP: ${socket.handshake.address} listening for ${EVENT.TRANSACTION_HISTORY} event by accounts:(${args.accounts}).`
         );
-        onTransactionsHistory(socket, args);
+        onTransactionHistory(socket, args);
     });
 
     socket.on(EVENT.DISCONNECT, () => {
-        manageForkTransactionsWriting(io.sockets.sockets.size);
+        manageForkEventSaveInState(io.sockets.sockets.size);
         clearSocketState();
 
         console.log('Socket disconnected:', socket.id);

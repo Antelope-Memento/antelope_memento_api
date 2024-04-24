@@ -1,12 +1,8 @@
 import { Socket } from 'socket.io';
-import { State, SocketId, TransactionType, Args, SocketState } from './types';
+import { State, SocketId, Args, SocketState } from './types';
 
 import constants from '../../../constants/config';
-import {
-    isNumber,
-    isNonEmptyArray,
-    isNonEmptyArrayOfAccounts,
-} from '../../../utilities/helpers';
+import { isNonEmptyArray } from '../../../utilities/helpers';
 
 import { assert } from 'ts-essentials';
 
@@ -14,59 +10,71 @@ import * as syncService from '../../sync';
 import * as receiptsService from '../../receipts';
 import * as eventLogService from '../../eventLog';
 import * as transactionsService from '../../transactions';
+import {
+    calculateTraceTxsBlockThreshold,
+    shouldSwitchToForkType,
+    shouldSwitchToTraceType,
+    validateArgs,
+} from './utils';
 
 const { EVENT, EVENT_ERRORS } = constants;
 
-const TRACE_TRANSACTIONS_BLOCKS_THRESHOLD =
+export const TRACE_BLOCKS_THRESHOLD =
     Number(process.env.WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD) ?? 100;
-const TRACE_TRANSACTIONS_LIMIT =
+export const TRACE_BLOCKS_LIMIT =
     Number(process.env.WS_TRACE_TRANSACTIONS_LIMIT) ?? 100;
-const FORK_TRANSACTIONS_LIMIT =
+export const FORK_BLOCKS_LIMIT =
     Number(process.env.WS_FORK_TRANSACTIONS_LIMIT) ?? 100;
 
-const EMIT_TIMEOUT_TIME = 500; // Time in milliseconds to wait before emitting the next transactions
-const FORK_TRANSACTIONS_WRITING_INTERVAL_TIME = 500; // Time in milliseconds to write the fork transactions
+export const EMIT_TIMEOUT_TIME = 500; // Time in milliseconds to wait before emitting the next event
+export const FORK_EVENT_WRITING_INTERVAL_TIME = 500; // Time in milliseconds to write the fork event
 
 const state: State = {
     connectedSockets: {},
-    forks: { data: [], lastForkId: null, intervalId: null }, // forks.data represents the fork transactions, which this service will write and emit to the clients when requested
+    forks: { data: [], lastForkId: null, intervalId: null }, // forks.data represents the fork event, which this service will write and emit to the clients when requested
 };
 
-function manageForkTransactionsWriting(connectionsCount: number) {
+export function scheduleNextEmit(socket: Socket) {
+    setTimeout(() => {
+        emitTransactionsHistory(socket);
+    }, EMIT_TIMEOUT_TIME);
+}
+
+function manageForkEventSaveInState(connectionsCount: number) {
     const shouldWrite = connectionsCount > 0 && !state.forks.intervalId;
 
-    // start writing the fork transactions if there are active socket connections
+    // start writing the fork event if there are active socket connections
     if (shouldWrite) {
         console.log(
-            `Starting to write fork transactions, active connections: ${connectionsCount}`
+            `Starting to write fork event, active connections: ${connectionsCount}`
         );
         state.forks.intervalId = setInterval(async () => {
             if (
                 // check for any active socket connections with 'fork' transaction type
                 !Object.values(state.connectedSockets).find(
-                    ({ transactionType }) => transactionType === 'fork'
+                    ({ eventType }) => eventType === 'fork'
                 )
             ) {
                 return;
             }
 
             try {
-                await writeForkTransactions();
+                await saveForkEventInState();
             } catch (error) {
-                console.error('error writing fork transactions:', error);
+                console.error('error writing fork event:', error);
             }
-        }, FORK_TRANSACTIONS_WRITING_INTERVAL_TIME);
+        }, FORK_EVENT_WRITING_INTERVAL_TIME);
     }
     if (!connectionsCount && state.forks.intervalId) {
-        // stop writing the fork transactions and clear the fork state
+        // stop writing the fork event and clear the fork state
         // if there are no active socket connections
         clearInterval(state.forks.intervalId);
         state.forks = { data: [], lastForkId: null, intervalId: null };
     }
 }
 
-// write the fork transactions and save them to the state
-async function writeForkTransactions() {
+// write the fork event and save them to the state
+async function saveForkEventInState() {
     let fromId: number;
 
     if (!state.forks.lastForkId) {
@@ -80,7 +88,7 @@ async function writeForkTransactions() {
 
     const forks = await eventLogService.getAll({
         fromId,
-        toId: Number(fromId) + FORK_TRANSACTIONS_LIMIT,
+        toId: Number(fromId) + FORK_BLOCKS_LIMIT,
     });
 
     if (isNonEmptyArray(forks)) {
@@ -98,7 +106,7 @@ function getSocketStateActions(socketId: SocketId) {
             state.connectedSockets[socketId] = {
                 args,
                 lastTransactionBlockNum: 0,
-                transactionType: args.irreversible ? 'trace' : 'fork',
+                eventType: args.irreversible ? 'trace' : 'fork',
             };
             console.log('Socket state initialized for socket:', socketId);
         },
@@ -123,7 +131,7 @@ function getSocketStateActions(socketId: SocketId) {
     };
 }
 
-function onTransactionsHistory(socket: Socket, args: Args) {
+function onTransactionHistory(socket: Socket, args: Args) {
     const { valid, message } = validateArgs(args);
 
     if (!valid) {
@@ -165,7 +173,7 @@ async function emitTransactionsHistory(socket: Socket) {
 
     const {
         lastTransactionBlockNum,
-        transactionType,
+        eventType,
         args: { accounts, start_block, irreversible },
     } = state;
 
@@ -179,7 +187,7 @@ async function emitTransactionsHistory(socket: Socket) {
         startBlock,
         lastIrreversibleBlock,
         irreversible,
-        transactionType,
+        eventType,
     });
 
     const shouldSwitchToFork = shouldSwitchToForkType({
@@ -187,13 +195,13 @@ async function emitTransactionsHistory(socket: Socket) {
         lastIrreversibleBlock,
         start_block,
         irreversible,
-        transactionType,
+        eventType,
     });
 
     if (shouldSwitchToTrace) {
         console.log(`Switching to trace type for socket: ${socket.id}`);
         setSocketState({
-            transactionType: 'trace',
+            eventType: 'trace',
         });
         scheduleNextEmit(socket);
         return;
@@ -202,13 +210,13 @@ async function emitTransactionsHistory(socket: Socket) {
     if (shouldSwitchToFork) {
         console.log(`Switching to fork type for socket: ${socket.id}`);
         setSocketState({
-            transactionType: 'fork',
+            eventType: 'fork',
         });
         scheduleNextEmit(socket);
         return;
     }
 
-    emitTransactionsBasedOnType({
+    emitEventBasedOnType({
         socket,
         accounts,
         startBlock,
@@ -218,53 +226,7 @@ async function emitTransactionsHistory(socket: Socket) {
     });
 }
 
-function scheduleNextEmit(socket: Socket) {
-    setTimeout(() => {
-        emitTransactionsHistory(socket);
-    }, EMIT_TIMEOUT_TIME);
-}
-
-function shouldSwitchToTraceType({
-    start_block,
-    startBlock,
-    lastIrreversibleBlock,
-    irreversible,
-    transactionType,
-}: {
-    start_block?: Args['start_block'];
-    startBlock: number;
-    lastIrreversibleBlock: number;
-    irreversible: Args['irreversible'];
-    transactionType: TransactionType;
-}) {
-    return (
-        ((start_block && startBlock < Number(lastIrreversibleBlock)) ||
-            irreversible) &&
-        transactionType !== 'trace'
-    );
-}
-
-function shouldSwitchToForkType({
-    lastTransactionBlockNum,
-    lastIrreversibleBlock,
-    start_block,
-    irreversible,
-    transactionType,
-}: {
-    lastTransactionBlockNum: number;
-    lastIrreversibleBlock: number;
-    start_block?: Args['start_block'];
-    irreversible: Args['irreversible'];
-    transactionType: TransactionType;
-}) {
-    return (
-        (lastTransactionBlockNum >= lastIrreversibleBlock || !start_block) &&
-        !irreversible &&
-        transactionType !== 'fork'
-    );
-}
-
-async function emitTransactionsBasedOnType({
+async function emitEventBasedOnType({
     socket,
     accounts,
     startBlock,
@@ -287,14 +249,14 @@ async function emitTransactionsBasedOnType({
         `emitTransactionsBasedOnType: socket state not found for socket: ${socket.id}`
     );
 
-    switch (state.transactionType) {
+    switch (state.eventType) {
         case 'trace': {
             let shouldExecute = true;
             while (shouldExecute) {
                 const count = await receiptsService.getCount({
                     accounts,
                     fromBlock: startBlock,
-                    toBlock: startBlock + TRACE_TRANSACTIONS_BLOCKS_THRESHOLD,
+                    toBlock: startBlock + TRACE_BLOCKS_THRESHOLD,
                 });
 
                 const threshold = calculateTraceTxsBlockThreshold(
@@ -312,7 +274,7 @@ async function emitTransactionsBasedOnType({
                     toBlock <= headBlock;
 
                 if (shouldExecute && count !== 0) {
-                    await emitTraceTransactions(socket, {
+                    await emitTraceEvent(socket, {
                         accounts,
                         fromBlock: startBlock,
                         toBlock,
@@ -324,13 +286,13 @@ async function emitTransactionsBasedOnType({
             break;
         }
         case 'fork': {
-            emitForkTransactions(socket, { accounts });
+            emitForkEvent(socket, { accounts });
             break;
         }
     }
 }
 
-async function emitTraceTransactions(
+async function emitTraceEvent(
     socket: Socket,
     {
         accounts,
@@ -366,17 +328,14 @@ async function emitTraceTransactions(
     }
 }
 
-async function emitForkTransactions(
+async function emitForkEvent(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
-    const transactions = eventLogService.webSocketFormat(
-        state.forks.data,
-        accounts
-    );
+    const events = eventLogService.webSocketFormat(state.forks.data, accounts);
 
-    if (isNonEmptyArray(transactions)) {
-        socket.emit(EVENT.TRANSACTION_HISTORY, transactions, () => {
+    if (isNonEmptyArray(events)) {
+        socket.emit(EVENT.TRANSACTION_HISTORY, events, () => {
             scheduleNextEmit(socket);
         });
     } else {
@@ -384,58 +343,8 @@ async function emitForkTransactions(
     }
 }
 
-function validateArgs(args: Args) {
-    const { accounts, start_block, irreversible } = args;
-
-    switch (true) {
-        case typeof args !== 'object':
-            return {
-                valid: false,
-                message: EVENT_ERRORS.INVALID_ARGS,
-            };
-        case !accounts || !isNonEmptyArrayOfAccounts(accounts):
-            return {
-                valid: false,
-                message: EVENT_ERRORS.INVALID_ACCOUNTS,
-            };
-        case start_block && !isNumber(start_block):
-            return {
-                valid: false,
-                message: EVENT_ERRORS.INVALID_START_BLOCK,
-            };
-        case irreversible && typeof irreversible !== 'boolean':
-            return {
-                valid: false,
-                message: EVENT_ERRORS.INVALID_IRREVERSIBLE,
-            };
-        case irreversible && !start_block:
-            return {
-                valid: false,
-                message: EVENT_ERRORS.START_BLOCK_BEHIND_LAST_IRREVERSIBLE,
-            };
-        default:
-            return {
-                valid: true,
-            };
-    }
-}
-
-function calculateTraceTxsBlockThreshold(count: number, startBlock: number) {
-    // The size of the chunk is determined as follows:
-    // we get the number of traces within the next 100 blocks(the number is configurable),
-    // and if it's more than 100 traces (configurable), the block range is reduced proportionally.
-    if (count > TRACE_TRANSACTIONS_LIMIT) {
-        const ratio = count / TRACE_TRANSACTIONS_BLOCKS_THRESHOLD;
-        return Math.floor(
-            startBlock + (1 / ratio) * TRACE_TRANSACTIONS_BLOCKS_THRESHOLD
-        );
-    }
-
-    return startBlock + TRACE_TRANSACTIONS_BLOCKS_THRESHOLD;
-}
-
 export {
-    onTransactionsHistory,
+    onTransactionHistory,
     getSocketStateActions,
-    manageForkTransactionsWriting,
+    manageForkEventSaveInState,
 };
