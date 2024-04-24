@@ -36,7 +36,7 @@ const state: State = {
 
 export function scheduleNextEmit(socket: Socket) {
     setTimeout(() => {
-        emitTransactionsHistory(socket);
+        emitTransactionHistory(socket);
     }, EMIT_TIMEOUT_TIME);
 }
 
@@ -154,10 +154,10 @@ function onTransactionHistory(socket: Socket, args: Args) {
         initializeSocketState(args);
     }
 
-    emitTransactionsHistory(socket);
+    emitTransactionHistory(socket);
 }
 
-async function emitTransactionsHistory(socket: Socket) {
+async function emitTransactionHistory(socket: Socket) {
     const { setSocketState, getSocketState } = getSocketStateActions(socket.id);
 
     const headBlock = await syncService.getHeadBlockNumber();
