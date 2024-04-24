@@ -246,7 +246,7 @@ async function emitEventBasedOnType({
     const state = getSocketState();
     assert(
         state,
-        `emitTransactionsBasedOnType: socket state not found for socket: ${socket.id}`
+        `emitTransactionBasedOnType: socket state not found for socket: ${socket.id}`
     );
 
     switch (state.eventType) {
