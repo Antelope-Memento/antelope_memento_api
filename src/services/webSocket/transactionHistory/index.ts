@@ -9,7 +9,7 @@ import { assert } from 'ts-essentials';
 import * as syncService from '../../sync';
 import * as receiptsService from '../../receipts';
 import * as eventLogService from '../../eventLog';
-import * as transactionsService from '../../transactions';
+import * as transactionService from '../../transactions';
 import {
     calculateTraceTxsBlockThreshold,
     shouldSwitchToForkType,
@@ -306,22 +306,21 @@ async function emitTraceEvent(
 ) {
     const { setSocketState } = getSocketStateActions(socket.id);
 
-    const transactionsHistory =
-        await transactionsService.getWebSocketTraceTransactions({
+    const transactionHistory =
+        await transactionService.getWebSocketTraceTransactions({
             accounts,
             fromBlock,
             toBlock,
         });
 
-    if (isNonEmptyArray(transactionsHistory)) {
-        const lastTransactionBlockNum = transactionsHistory[0].block_num;
+    if (isNonEmptyArray(transactionHistory)) {
+        const lastTransactionBlockNum = transactionHistory[0].block_num;
         setSocketState({
             lastTransactionBlockNum: Number(lastTransactionBlockNum),
         });
     }
 
-    const transactions =
-        transactionsService.webSocketFormat(transactionsHistory);
+    const transactions = transactionService.webSocketFormat(transactionHistory);
 
     if (isNonEmptyArray(transactions)) {
         socket.emit(EVENT.TRANSACTION_HISTORY, transactions, () => {});
