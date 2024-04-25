@@ -264,7 +264,7 @@ async function emitEventBasedOnType({
                     startBlock
                 );
 
-                const toBlock = irreversible
+                let toBlock = irreversible
                     ? Math.min(threshold, lastIrreversibleBlock)
                     : threshold;
 
@@ -273,13 +273,27 @@ async function emitEventBasedOnType({
                     lastIrreversibleBlock !== toBlock &&
                     toBlock <= headBlock;
 
-                if (shouldExecute && count !== 0) {
-                    await emitTraceEvent(socket, {
-                        accounts,
-                        fromBlock: startBlock,
-                        toBlock,
-                    });
+                if (shouldExecute) {
+                    if (count !== 0) {
+                        await emitTraceEvent(socket, {
+                            accounts,
+                            fromBlock: startBlock,
+                            toBlock,
+                        });
+                    } else {
+                        const nextBlock =
+                            await receiptsService.getNextBlockWithTransaction({
+                                accounts,
+                                fromBlock: startBlock,
+                            });
+                        toBlock = nextBlock;
+                    }
                 }
+
+                if (toBlock === startBlock) {
+                    shouldExecute = false;
+                }
+
                 startBlock = toBlock;
             }
             scheduleNextEmit(socket);
