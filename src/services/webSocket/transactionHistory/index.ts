@@ -1,5 +1,5 @@
 import { Socket } from 'socket.io';
-import { State, SocketId, Args, SocketState } from './types';
+import { State, SocketId, Args, SocketState, TableType } from './types';
 
 import constants from '../../../constants/config';
 import { isNonEmptyArray } from '../../../utilities/helpers';
@@ -12,8 +12,8 @@ import * as eventLogService from '../../eventLog';
 import * as transactionService from '../../transactions';
 import {
     calculateTraceTxsBlockThreshold,
-    shouldSwitchToForkType,
-    shouldSwitchToTraceType,
+    switchEventLogTable,
+    switchToTransactionTable,
     validateArgs,
 } from './utils';
 
@@ -23,15 +23,15 @@ export const TRACE_BLOCKS_THRESHOLD =
     Number(process.env.WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD) ?? 100;
 export const TRACE_BLOCKS_LIMIT =
     Number(process.env.WS_TRACE_TRANSACTIONS_LIMIT) ?? 100;
-export const FORK_BLOCKS_LIMIT =
+export const EVENTLOG_BLOCKS_LIMIT =
     Number(process.env.WS_FORK_TRANSACTIONS_LIMIT) ?? 100;
 
 export const EMIT_TIMEOUT_TIME = 500; // Time in milliseconds to wait before emitting the next event
-export const FORK_EVENT_WRITING_INTERVAL_TIME = 500; // Time in milliseconds to write the fork event
+export const EVENTLOG_WRITING_INTERVAL_TIME = 500; // Time in milliseconds to write the EventLog event
 
 const state: State = {
     connectedSockets: {},
-    forks: { data: [], lastForkId: null, intervalId: null }, // forks.data represents the fork event, which this service will write and emit to the clients when requested
+    eventLog: { data: [], lastEventId: null, intervalId: null }, // EventLog.data represents the EventLog event, which this service will write and emit to the clients when requested
 };
 
 export function scheduleNextEmit(socket: Socket) {
@@ -40,62 +40,62 @@ export function scheduleNextEmit(socket: Socket) {
     }, EMIT_TIMEOUT_TIME);
 }
 
-function manageForkEventSaveInState(connectionsCount: number) {
-    const shouldWrite = connectionsCount > 0 && !state.forks.intervalId;
+function manageEventLogSaveInState(connectionsCount: number) {
+    const shouldWrite = connectionsCount > 0 && !state.eventLog.intervalId;
 
-    // start writing the fork event if there are active socket connections
+    // start writing the EventLog event if there are active socket connections
     if (shouldWrite) {
         console.log(
-            `Starting to write fork event, active connections: ${connectionsCount}`
+            `Starting to write EventLog event, active connections: ${connectionsCount}`
         );
-        state.forks.intervalId = setInterval(async () => {
+        state.eventLog.intervalId = setInterval(async () => {
             if (
-                // check for any active socket connections with 'fork' transaction type
+                // check for any active socket connections with 'EventLog' transaction type
                 !Object.values(state.connectedSockets).find(
-                    ({ eventType }) => eventType === 'fork'
+                    ({ tableType }) => tableType === TableType.eventLog
                 )
             ) {
                 return;
             }
 
             try {
-                await saveForkEventInState();
+                await saveEventLogInState();
             } catch (error) {
-                console.error('error writing fork event:', error);
+                console.error('error writing EventLog event:', error);
             }
-        }, FORK_EVENT_WRITING_INTERVAL_TIME);
+        }, EVENTLOG_WRITING_INTERVAL_TIME);
     }
-    if (!connectionsCount && state.forks.intervalId) {
-        // stop writing the fork event and clear the fork state
+    if (!connectionsCount && state.eventLog.intervalId) {
+        // stop writing the EventLog event and clear the EventLog state
         // if there are no active socket connections
-        clearInterval(state.forks.intervalId);
-        state.forks = { data: [], lastForkId: null, intervalId: null };
+        clearInterval(state.eventLog.intervalId);
+        state.eventLog = { data: [], lastEventId: null, intervalId: null };
     }
 }
 
-// write the fork event and save them to the state
-async function saveForkEventInState() {
+// write the EventLog event and save them to the state
+async function saveEventLogInState() {
     let fromId: number;
 
-    if (!state.forks.lastForkId) {
+    if (!state.eventLog.lastEventId) {
         const lastIrreversibleBlock =
             await syncService.getIrreversibleBlockNumber();
 
         fromId = await eventLogService.getMaxEventLog(lastIrreversibleBlock);
     } else {
-        fromId = state.forks.lastForkId;
+        fromId = state.eventLog.lastEventId;
     }
 
-    const forks = await eventLogService.getAll({
+    const EventLogTransactions = await eventLogService.getAll({
         fromId,
-        toId: Number(fromId) + FORK_BLOCKS_LIMIT,
+        toId: Number(fromId) + EVENTLOG_BLOCKS_LIMIT,
     });
 
-    if (isNonEmptyArray(forks)) {
-        state.forks = {
-            ...state.forks,
-            data: forks,
-            lastForkId: forks[0].id,
+    if (isNonEmptyArray(EventLogTransactions)) {
+        state.eventLog = {
+            ...state.eventLog,
+            data: EventLogTransactions,
+            lastEventId: EventLogTransactions[0].id,
         };
     }
 }
@@ -106,7 +106,10 @@ function getSocketStateActions(socketId: SocketId) {
             state.connectedSockets[socketId] = {
                 args,
                 lastTransactionBlockNum: 0,
-                eventType: args.irreversible ? 'trace' : 'fork',
+                lastCheckedBlock: 0,
+                tableType: args.irreversible
+                    ? TableType.transaction
+                    : TableType.eventLog,
             };
             console.log('Socket state initialized for socket:', socketId);
         },
@@ -172,45 +175,46 @@ async function emitTransactionHistory(socket: Socket) {
     }
 
     const {
-        lastTransactionBlockNum,
-        eventType,
+        lastCheckedBlock,
+        tableType,
         args: { accounts, start_block, irreversible },
     } = state;
 
-    const startBlock = Math.max(
-        start_block ?? headBlock,
-        lastTransactionBlockNum
-    );
+    const startBlock = Math.max(start_block ?? headBlock, lastCheckedBlock);
 
-    const shouldSwitchToTrace = shouldSwitchToTraceType({
+    const shouldUseTransactionTable = switchToTransactionTable({
         start_block,
         startBlock,
         lastIrreversibleBlock,
         irreversible,
-        eventType,
+        tableType,
     });
 
-    const shouldSwitchToFork = shouldSwitchToForkType({
-        lastTransactionBlockNum,
+    const shouldUseEventLogTable = switchEventLogTable({
+        lastCheckedBlock,
         lastIrreversibleBlock,
         start_block,
         irreversible,
-        eventType,
+        tableType,
     });
 
-    if (shouldSwitchToTrace) {
-        console.log(`Switching to trace type for socket: ${socket.id}`);
+    if (shouldUseTransactionTable) {
+        console.log(
+            `Switching to Transaction Table for socket: ${socket.id} by accounts:(${accounts}).`
+        );
         setSocketState({
-            eventType: 'trace',
+            tableType: TableType.transaction,
         });
         scheduleNextEmit(socket);
         return;
     }
 
-    if (shouldSwitchToFork) {
-        console.log(`Switching to fork type for socket: ${socket.id}`);
+    if (shouldUseEventLogTable) {
+        console.log(
+            `Switching to EventLog Table for socket: ${socket.id} by accounts:(${accounts}).`
+        );
         setSocketState({
-            eventType: 'fork',
+            tableType: TableType.eventLog,
         });
         scheduleNextEmit(socket);
         return;
@@ -241,7 +245,7 @@ async function emitEventBasedOnType({
     irreversible: Args['irreversible'];
     headBlock: number;
 }) {
-    const { getSocketState } = getSocketStateActions(socket.id);
+    const { getSocketState, setSocketState } = getSocketStateActions(socket.id);
 
     const state = getSocketState();
     assert(
@@ -249,9 +253,10 @@ async function emitEventBasedOnType({
         `emitTransactionBasedOnType: socket state not found for socket: ${socket.id}`
     );
 
-    switch (state.eventType) {
-        case 'trace': {
+    switch (state.tableType) {
+        case TableType.transaction: {
             let shouldExecute = true;
+
             while (shouldExecute) {
                 const count = await receiptsService.getCount({
                     accounts,
@@ -269,44 +274,42 @@ async function emitEventBasedOnType({
                     : threshold;
 
                 shouldExecute =
-                    startBlock < toBlock &&
+                    startBlock <= toBlock &&
                     lastIrreversibleBlock !== toBlock &&
                     toBlock <= headBlock;
 
-                if (shouldExecute) {
-                    if (count !== 0) {
-                        await emitTraceEvent(socket, {
+                if (count !== 0) {
+                    await emitTransactionEvent(socket, {
+                        accounts,
+                        fromBlock: startBlock,
+                        toBlock,
+                    });
+                } else if (toBlock <= lastIrreversibleBlock) {
+                    const nextBlock =
+                        await receiptsService.getNextBlockWithTransaction({
                             accounts,
                             fromBlock: startBlock,
-                            toBlock,
                         });
-                    } else {
-                        const nextBlock =
-                            await receiptsService.getNextBlockWithTransaction({
-                                accounts,
-                                fromBlock: startBlock,
-                            });
-                        toBlock = nextBlock;
-                    }
-                }
 
-                if (toBlock === startBlock) {
-                    shouldExecute = false;
+                    toBlock = nextBlock ?? lastIrreversibleBlock;
                 }
 
                 startBlock = toBlock;
+                setSocketState({
+                    lastCheckedBlock: toBlock,
+                });
             }
             scheduleNextEmit(socket);
             break;
         }
-        case 'fork': {
-            emitForkEvent(socket, { accounts });
+        case TableType.eventLog: {
+            emitEventLogEvent(socket, { accounts });
             break;
         }
     }
 }
 
-async function emitTraceEvent(
+async function emitTransactionEvent(
     socket: Socket,
     {
         accounts,
@@ -331,6 +334,7 @@ async function emitTraceEvent(
         const lastTransactionBlockNum = transactionHistory[0].block_num;
         setSocketState({
             lastTransactionBlockNum: Number(lastTransactionBlockNum),
+            lastCheckedBlock: toBlock,
         });
     }
 
@@ -341,11 +345,14 @@ async function emitTraceEvent(
     }
 }
 
-async function emitForkEvent(
+async function emitEventLogEvent(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
-    const events = eventLogService.webSocketFormat(state.forks.data, accounts);
+    const events = eventLogService.webSocketFormat(
+        state.eventLog.data,
+        accounts
+    );
 
     if (isNonEmptyArray(events)) {
         socket.emit(EVENT.TRANSACTION_HISTORY, events, () => {
@@ -359,5 +366,5 @@ async function emitForkEvent(
 export {
     onTransactionHistory,
     getSocketStateActions,
-    manageForkEventSaveInState,
+    manageEventLogSaveInState,
 };
