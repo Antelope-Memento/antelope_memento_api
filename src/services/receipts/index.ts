@@ -45,9 +45,5 @@ export async function getNextBlockWithTransaction({
         limit: 1,
     });
 
-    if (firstBlock) {
-        return Number(firstBlock?.dataValues?.block_num);
-    } else {
-        return fromBlock;
-    }
+    return firstBlock ? Number(firstBlock?.dataValues?.block_num) : null;
 }
