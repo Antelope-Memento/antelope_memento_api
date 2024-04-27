@@ -1,4 +1,4 @@
-import { EventType, Args } from './types';
+import { Args, TableType } from './types';
 import constants from '../../../constants/config';
 import {
     isNonEmptyArrayOfAccounts,
@@ -8,43 +8,43 @@ import { TRACE_BLOCKS_LIMIT, TRACE_BLOCKS_THRESHOLD } from '.';
 
 const { EVENT_ERRORS } = constants;
 
-export function shouldSwitchToTraceType({
+export function switchToTransactionTable({
     start_block,
     startBlock,
     lastIrreversibleBlock,
     irreversible,
-    eventType,
+    tableType,
 }: {
     start_block?: Args['start_block'];
     startBlock: number;
     lastIrreversibleBlock: number;
     irreversible: Args['irreversible'];
-    eventType: EventType;
+    tableType: TableType;
 }) {
     return (
         ((start_block && startBlock < Number(lastIrreversibleBlock)) ||
             irreversible) &&
-        eventType !== 'trace'
+        tableType !== TableType.transaction
     );
 }
 
-export function shouldSwitchToForkType({
-    lastTransactionBlockNum,
+export function switchEventLogTable({
+    lastCheckedBlock,
     lastIrreversibleBlock,
     start_block,
     irreversible,
-    eventType,
+    tableType,
 }: {
-    lastTransactionBlockNum: number;
+    lastCheckedBlock: number;
     lastIrreversibleBlock: number;
     start_block?: Args['start_block'];
     irreversible: Args['irreversible'];
-    eventType: EventType;
+    tableType: TableType;
 }) {
     return (
-        (lastTransactionBlockNum >= lastIrreversibleBlock || !start_block) &&
+        (lastCheckedBlock >= lastIrreversibleBlock || !start_block) &&
         !irreversible &&
-        eventType !== 'fork'
+        tableType !== TableType.eventLog
     );
 }
 
