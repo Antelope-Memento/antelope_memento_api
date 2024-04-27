@@ -312,7 +312,7 @@ CPU_CORES = 4
 MAX_RECORD_COUNT = 100
 WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100
 WS_TRACE_TRANSACTIONS_LIMIT = 100
-WS_FORK_TRANSACTIONS_LIMIT = 100
+WS_EVENTLOG_TRANSACTIONS_LIMIT = 100
 
 EOT
 
@@ -336,7 +336,7 @@ CPU_CORES = 4
 MAX_RECORD_COUNT = 100
 WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100
 WS_TRACE_TRANSACTIONS_LIMIT = 100
-WS_FORK_TRANSACTIONS_LIMIT = 100
+WS_EVENTLOG_TRANSACTIONS_LIMIT = 100
 
 EOT
 
@@ -373,7 +373,7 @@ MAX_RECORD_COUNT = 10  // maximum number of records that can be returned in a si
 
 WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100 // maximum number of blocks threshold for which transactions will be emitted from websocket
 WS_TRACE_TRANSACTIONS_LIMIT = 100 // maximum number of irreversible transactions which can be emitted from websocket
-WS_FORK_TRANSACTIONS_LIMIT = 100 // maximum number of reversible transactions which can be emitted from websocket
+WS_EVENTLOG_TRANSACTIONS_LIMIT = 100 // maximum number of reversible transactions which can be emitted from websocket
 
 ```
 
