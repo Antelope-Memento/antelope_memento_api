@@ -24,7 +24,7 @@ export const TRACE_BLOCKS_THRESHOLD =
 export const TRACE_BLOCKS_LIMIT =
     Number(process.env.WS_TRACE_TRANSACTIONS_LIMIT) ?? 100;
 export const EVENTLOG_BLOCKS_LIMIT =
-    Number(process.env.WS_FORK_TRANSACTIONS_LIMIT) ?? 100;
+    Number(process.env.WS_EVENTLOG_TRANSACTIONS_LIMIT) ?? 100;
 
 export const EMIT_TIMEOUT_TIME = 500; // Time in milliseconds to wait before emitting the next event
 export const EVENTLOG_WRITING_INTERVAL_TIME = 500; // Time in milliseconds to write the EventLog event
@@ -200,7 +200,7 @@ async function emitTransactionHistory(socket: Socket) {
 
     if (shouldUseTransactionTable) {
         console.log(
-            `Switching to Transaction Table for socket: ${socket.id} by accounts:(${accounts}).`
+            `Switched to Transaction Table for socket: ${socket.id} by accounts:(${accounts}).`
         );
         setSocketState({
             tableType: TableType.transaction,
@@ -211,7 +211,7 @@ async function emitTransactionHistory(socket: Socket) {
 
     if (shouldUseEventLogTable) {
         console.log(
-            `Switching to EventLog Table for socket: ${socket.id} by accounts:(${accounts}).`
+            `Switched to EventLog Table for socket: ${socket.id} by accounts:(${accounts}).`
         );
         setSocketState({
             tableType: TableType.eventLog,
