@@ -6,22 +6,28 @@ export type SocketId = string;
  * - 'trace' - transactions that cannot be reverted
  * - 'fork' - transactions that can be reverted
  */
+export enum TableType {
+    transaction = 'transaction',
+    eventLog = 'eventLog',
+}
 export type EventType = 'trace' | 'fork';
+
 export interface State {
     connectedSockets: {
         [key: SocketId]: SocketState;
     };
-    forks: {
+    eventLog: {
         data: EventLog[];
-        lastForkId: number | null;
+        lastEventId: number | null;
         intervalId: NodeJS.Timeout | null;
     };
 }
 
 export interface SocketState {
     args: Args;
-    eventType: EventType;
+    tableType: TableType;
     lastTransactionBlockNum: number;
+    lastCheckedBlock: number;
 }
 
 export interface Args {
