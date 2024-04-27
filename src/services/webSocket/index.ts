@@ -3,7 +3,7 @@ import constants from '../../constants/config';
 import {
     onTransactionHistory,
     getSocketStateActions as getTransactionsHistorySocketStateActions,
-    manageForkEventSaveInState,
+    manageEventLogSaveInState,
 } from './transactionHistory';
 import { Args } from './transactionHistory/types';
 
@@ -17,7 +17,7 @@ function onConnection(socket: Socket, io: Server) {
     const { clearSocketState } = getTransactionsHistorySocketStateActions(
         socket.id
     );
-    manageForkEventSaveInState(io.sockets.sockets.size);
+    manageEventLogSaveInState(io.sockets.sockets.size);
 
     socket.on(EVENT.TRANSACTION_HISTORY, (args: Args) => {
         console.log(
@@ -27,7 +27,7 @@ function onConnection(socket: Socket, io: Server) {
     });
 
     socket.on(EVENT.DISCONNECT, () => {
-        manageForkEventSaveInState(io.sockets.sockets.size);
+        manageEventLogSaveInState(io.sockets.sockets.size);
         clearSocketState();
 
         console.log('Socket disconnected:', socket.id);
