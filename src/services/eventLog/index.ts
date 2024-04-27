@@ -1,6 +1,11 @@
 import { Op } from '@sequelize/core';
 import EventLog from '../../database/models/eventLog.model';
 
+enum EventType {
+    trace = 1003,
+    fork = 1001,
+}
+
 export async function getAll({
     fromId,
     toId,
@@ -9,7 +14,7 @@ export async function getAll({
     toId: number;
 }): Promise<EventLog[]> {
     return EventLog.findAll({
-        attributes: ['id', 'block_num', 'data'],
+        attributes: ['id', 'block_num', 'event_type', 'data'],
         where: {
             id: {
                 [Op.gt]: fromId,
@@ -32,7 +37,6 @@ export async function getMaxEventLog(blockNum: number) {
 export function webSocketFormat(eventLogs: EventLog[], accounts: string[]) {
     const parsedTraces = eventLogs.map(({ data, ...tx }) => ({
         ...tx,
-        type: 'fork' as const,
         data: JSON.parse(data.toString('utf8')),
     }));
 
@@ -43,10 +47,23 @@ export function webSocketFormat(eventLogs: EventLog[], accounts: string[]) {
             )
         )
         .map((tx) => {
-            tx.id && delete (tx as { id?: unknown }).id;
-            return {
-                ...tx,
-                data: null,
-            };
+            if (tx.event_type === EventType.trace) {
+                tx.id && delete (tx as { id?: unknown }).id;
+                tx.event_type &&
+                    delete (tx as { event_type?: unknown }).event_type;
+                return {
+                    ...tx,
+                    type: 'trace' as const,
+                };
+            } else {
+                tx.id && delete (tx as { id?: unknown }).id;
+                tx.event_type &&
+                    delete (tx as { event_type?: unknown }).event_type;
+                return {
+                    ...tx,
+                    type: 'fork' as const,
+                    data: null,
+                };
+            }
         });
 }
