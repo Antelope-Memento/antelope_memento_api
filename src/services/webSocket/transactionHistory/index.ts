@@ -84,6 +84,10 @@ async function saveEventLogInState() {
         );
 
         const fromId = state.eventLog.lastEventId ?? fromIdDB;
+        const toId = Number(fromId) + EVENTLOG_BLOCKS_LIMIT;
+
+        console.log('test fromId2: ', fromId);
+        console.log('test toId2: ', toId);
 
         const EventLogTransactions = await eventLogService.getAll({
             fromId,
