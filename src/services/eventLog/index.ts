@@ -41,20 +41,20 @@ export function webSocketFormat(eventLogs: EventLog[], accounts: string[]) {
     }));
 
     return parsedTraces
-        .filter((tx) =>
-            (tx.data.trace.action_traces as { receiver: string }[]).some(
-                ({ receiver }) => accounts.includes(receiver)
-            )
-        )
         .map((tx) => {
             if (tx.event_type === EventType.trace) {
-                tx.id && delete (tx as { id?: unknown }).id;
-                tx.event_type &&
-                    delete (tx as { event_type?: unknown }).event_type;
-                return {
-                    ...tx,
-                    type: 'trace' as const,
-                };
+                const findAcounts = (
+                    tx.data.trace.action_traces as { receiver: string }[]
+                ).some(({ receiver }) => accounts.includes(receiver));
+                if (findAcounts) {
+                    tx.id && delete (tx as { id?: unknown }).id;
+                    tx.event_type &&
+                        delete (tx as { event_type?: unknown }).event_type;
+                    return {
+                        ...tx,
+                        type: 'trace' as const,
+                    };
+                }
             } else {
                 tx.id && delete (tx as { id?: unknown }).id;
                 tx.event_type &&
@@ -65,5 +65,6 @@ export function webSocketFormat(eventLogs: EventLog[], accounts: string[]) {
                     data: null,
                 };
             }
-        });
+        })
+        .filter(Boolean);
 }
