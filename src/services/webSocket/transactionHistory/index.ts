@@ -75,28 +75,30 @@ function manageEventLogSaveInState(connectionsCount: number) {
 
 // write the EventLog event and save them to the state
 async function saveEventLogInState() {
-    let fromId: number;
-
-    if (!state.eventLog.lastEventId) {
+    try {
         const lastIrreversibleBlock =
             await syncService.getIrreversibleBlockNumber();
 
-        fromId = await eventLogService.getMaxEventLog(lastIrreversibleBlock);
-    } else {
-        fromId = state.eventLog.lastEventId;
-    }
+        const fromIdDB = await eventLogService.getMaxEventLog(
+            lastIrreversibleBlock
+        );
 
-    const EventLogTransactions = await eventLogService.getAll({
-        fromId,
-        toId: Number(fromId) + EVENTLOG_BLOCKS_LIMIT,
-    });
+        const fromId = state.eventLog.lastEventId ?? fromIdDB;
 
-    if (isNonEmptyArray(EventLogTransactions)) {
-        state.eventLog = {
-            ...state.eventLog,
-            data: EventLogTransactions,
-            lastEventId: EventLogTransactions[0].id,
-        };
+        const EventLogTransactions = await eventLogService.getAll({
+            fromId,
+            toId: Number(fromId) + EVENTLOG_BLOCKS_LIMIT,
+        });
+
+        if (isNonEmptyArray(EventLogTransactions)) {
+            state.eventLog = {
+                ...state.eventLog,
+                data: EventLogTransactions,
+                lastEventId: EventLogTransactions[0].id,
+            };
+        }
+    } catch (error) {
+        console.error('error saving EventLog in state:', error);
     }
 }
 
