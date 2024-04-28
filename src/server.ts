@@ -44,9 +44,25 @@ const required_options = [
     'CONNECTION_POOL',
 ];
 
+const numeric_options = [
+    'SERVER_BIND_PORT',
+    'POSTGRES_DB_PORT',
+    'CONNECTION_POOL',
+    'HEALTHY_SYNC_TIME_DIFF',
+    'CPU_CORES',
+    'MAX_RECORD_COUNT',
+    'WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD',
+    'WS_TRACE_TRANSACTIONS_LIMIT',
+    'WS_EVENTLOG_TRANSACTIONS_LIMIT',
+];
+
 required_options.forEach((item, i) => {
     if (process.env[item] === undefined) {
         console.error(`Environment option ${item} is not defined`);
+        process.exit(1);
+    }
+    if (numeric_options.includes(item) && isNaN(Number(process.env[item]))) {
+        console.error(`Environment option ${item} should be a number`);
         process.exit(1);
     }
 });
