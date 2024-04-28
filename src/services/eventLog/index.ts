@@ -13,6 +13,9 @@ export async function getAll({
     fromId: number;
     toId: number;
 }): Promise<EventLog[]> {
+    console.log('test fromId: ', fromId);
+    console.log('test toId: ', toId);
+
     return EventLog.findAll({
         attributes: ['id', 'block_num', 'event_type', 'data'],
         where: {
