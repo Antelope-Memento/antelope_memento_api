@@ -150,9 +150,19 @@ The following queries are supported:
 -   `transaction`: returns transaction_status
     -   `trx_id: String!`
 
-## Web Sockets
 
-The API supports Web Sockets for real-time updates. We use socket.io for the Web Socket interface. The client can subscribe to the `transaction_history` event, which start emitting the transaction data based on the provided parameters.
+
+## WebSocket API
+
+The WebSocket API allows subscribing to real-time updates from the
+blockchain. The [socket.io](https://socket.io/) messaging library is
+used by the server and client.
+
+The client subscribes to the stream by sending a `transaction_history`
+message, specifying the accounts it needs to monitor, optional
+starting block, and a flag indicating whether the client needs to
+receive irreversible transactions only, or it needs the transactions
+from the head block.
 
 Example of a client-side javascript code:
 
@@ -161,7 +171,7 @@ Example of a client-side javascript code:
 
 import { io } from 'socket.io-client';
 
-const socket = io('https://memento-streaming-dev.binfra.one', {
+const socket = io('https://memento.eu.eosamsterdam.net', {
     path: '/wax/socket.io',
     transports: ['websocket'],
 });
@@ -313,7 +323,6 @@ MAX_RECORD_COUNT = 100
 WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100
 WS_TRACE_TRANSACTIONS_LIMIT = 100
 WS_EVENTLOG_TRANSACTIONS_LIMIT = 100
-
 EOT
 
 systemctl enable memento_api@wax
@@ -337,14 +346,13 @@ MAX_RECORD_COUNT = 100
 WS_TRACE_TRANSACTIONS_BLOCKS_THRESHOLD = 100
 WS_TRACE_TRANSACTIONS_LIMIT = 100
 WS_EVENTLOG_TRANSACTIONS_LIMIT = 100
-
 EOT
 
 systemctl enable memento_api@waxpg
 systemctl start memento_api@waxpg
 ```
 
-## Configuration
+## Configuration options
 
 ```
 SERVER_BIND_IP = 0.0.0.0 // Server bind IP address
@@ -382,3 +390,5 @@ WS_EVENTLOG_TRANSACTIONS_LIMIT = 100 // maximum number of reversible transaction
 This work was sponsored by EOS Amsterdam block producer.
 
 Copyright 2023 Raj Kumar (raj.rpt@gmail.com), cc32d9 (cc32d9@gmail.com)
+
+Copyright 2024 [chainza.io](https://chainza.io/): Maks Hladun (maks@chainza.io), Andriy Shymkiv (andriy.sh@chainza.io)
