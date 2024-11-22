@@ -351,6 +351,15 @@ async function emitEventLogEvent(
     socket: Socket,
     { accounts }: { accounts: Args['accounts'] }
 ) {
+    const { setSocketState } = getSocketStateActions(socket.id);
+    const lastBlockNumber = state.eventLog.data[0]?.block_num;
+
+    if (lastBlockNumber) {
+        setSocketState({
+            lastCheckedBlock: lastBlockNumber,
+        });
+    }
+
     const events = eventLogService.webSocketFormat(
         state.eventLog.data,
         accounts
