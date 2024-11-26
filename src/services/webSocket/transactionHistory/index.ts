@@ -61,7 +61,7 @@ function manageEventLogSaveAndEmit(connectionsCount: number) {
 
             try {
                 await saveEventLogInState();
-                emitEventLogEventToClients();
+                emitEventLogsToClients();
             } catch (error) {
                 console.error('error writing EventLog event:', error);
             }
@@ -372,13 +372,12 @@ async function emitEventLogEvent(
     });
 }
 
-function emitEventLogEventToClients() {
-    const eventLogClients = Object.entries(state.connectedSockets).filter(
-        ([_, s]) => s.tableType === TableType.eventLog
-    );
+function emitEventLogsToClients() {
+    const eventLogClients = Object.entries(state.connectedSockets);
 
-    for (const client of eventLogClients) {
-        emitEventLogEvent(client[0], client[1].args.accounts);
+    for (const [socketId, socketState] of eventLogClients) {
+        if (socketState.tableType !== TableType.eventLog) continue;
+        emitEventLogEvent(socketId, socketState.args.accounts);
     }
 }
 
