@@ -49,7 +49,7 @@ function manageEventLogSaveInState(connectionsCount: number) {
         console.log(
             `Starting to write EventLog event, active connections: ${connectionsCount}`
         );
-        state.eventLog.intervalId = setInterval(() => {
+        state.eventLog.intervalId = setInterval(async () => {
             if (
                 // check for any active socket connections with 'EventLog' transaction type
                 !Object.values(state.connectedSockets).find(
@@ -58,11 +58,13 @@ function manageEventLogSaveInState(connectionsCount: number) {
             ) {
                 return;
             }
-            saveEventLogInState()
-                .then(() => emitEventLogEventToClients())
-                .catch((error) =>
-                    console.error('error writing EventLog event:', error)
-                );
+
+            try {
+                await saveEventLogInState();
+                emitEventLogEventToClients();
+            } catch (error) {
+                console.error('error writing EventLog event:', error);
+            }
         }, EVENTLOG_WRITING_INTERVAL_TIME);
     }
     if (!connectionsCount && state.eventLog.intervalId) {
@@ -379,6 +381,7 @@ function emitEventLogEventToClients() {
         emitEventLogEvent(client[0], client[1].args.accounts);
     }
 }
+
 export {
     onTransactionHistory,
     getSocketStateActions,
