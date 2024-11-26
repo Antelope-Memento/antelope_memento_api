@@ -34,13 +34,21 @@ export async function getMaxEventLog(blockNum: number) {
     });
 }
 
-export function webSocketFormat(eventLogs: EventLog[], accounts: string[]) {
+export function webSocketFormat(
+    eventLogs: EventLog[],
+    accounts: string[],
+    lastEventLogId: number,
+    lastCheckedBlock: number
+) {
     const parsedTraces = eventLogs.map(({ data, ...tx }) => ({
         ...tx,
         data: JSON.parse(data.toString('utf8')),
     }));
 
     return parsedTraces
+        .filter(
+            (tx) => tx.id > lastEventLogId && tx.block_num >= lastCheckedBlock
+        )
         .map((tx) => {
             if (tx.event_type === EventType.trace) {
                 const findAcounts = (

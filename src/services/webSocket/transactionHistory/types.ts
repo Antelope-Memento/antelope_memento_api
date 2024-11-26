@@ -28,6 +28,8 @@ export interface SocketState {
     tableType: TableType;
     lastTransactionBlockNum: number;
     lastCheckedBlock: number;
+    intervalId: NodeJS.Timeout | null;
+    lastEventLogId: number;
 }
 
 export interface Args {
