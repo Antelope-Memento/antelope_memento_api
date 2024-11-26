@@ -33,7 +33,7 @@ export const ACKNOWLEDGE_TIME = 5000;
 
 const state: State = {
     connectedSockets: {},
-    eventLog: { data: [], lastEventId: null, intervalId: null }, // EventLog.data represents the EventLog event, which this service will write and emit to the clients when requested
+    eventLog: { data: [], lastEventId: null, timeoutId: null }, // EventLog.data represents the EventLog event, which this service will write and emit to the clients when requested
 };
 
 export function scheduleNextEmit(socket: Socket) {
@@ -43,37 +43,51 @@ export function scheduleNextEmit(socket: Socket) {
 }
 
 function manageEventLogSaveAndEmit(connectionsCount: number) {
-    const shouldWrite = connectionsCount > 0 && !state.eventLog.intervalId;
+    const shouldWrite = connectionsCount > 0 && !state.eventLog.timeoutId;
 
     // start writing the EventLog event if there are active socket connections
     if (shouldWrite) {
         console.log(
             `Starting to write EventLog event, active connections: ${connectionsCount}`
         );
-        state.eventLog.intervalId = setInterval(async () => {
-            if (
-                // check for any active socket connections with 'EventLog' transaction type
-                !Object.values(state.connectedSockets).find(
-                    ({ tableType }) => tableType === TableType.eventLog
-                )
-            ) {
-                return;
-            }
-
-            try {
-                await saveEventLogInState();
-                emitEventLogsToClients();
-            } catch (error) {
-                console.error('error writing EventLog event:', error);
-            }
-        }, EVENTLOG_WRITING_INTERVAL_TIME);
+        state.eventLog.timeoutId = setTimeout(
+            saveAndEmitEventLog,
+            EVENTLOG_WRITING_INTERVAL_TIME
+        );
     }
-    if (!connectionsCount && state.eventLog.intervalId) {
+    if (!connectionsCount && state.eventLog.timeoutId) {
         // stop writing the EventLog event and clear the EventLog state
         // if there are no active socket connections
-        clearInterval(state.eventLog.intervalId);
-        state.eventLog = { data: [], lastEventId: null, intervalId: null };
+        clearTimeout(state.eventLog.timeoutId);
+        state.eventLog = { data: [], lastEventId: null, timeoutId: null };
         console.log('No connections found. Stop writing EventLog event.');
+    }
+}
+
+async function saveAndEmitEventLog() {
+    if (
+        // check for any active socket connections with 'EventLog' transaction type
+        !Object.values(state.connectedSockets).find(
+            ({ tableType }) => tableType === TableType.eventLog
+        )
+    ) {
+        state.eventLog.timeoutId = setTimeout(
+            saveAndEmitEventLog,
+            EVENTLOG_WRITING_INTERVAL_TIME
+        );
+        return;
+    }
+
+    try {
+        await saveEventLogInState();
+        emitEventLogsToClients();
+    } catch (error) {
+        console.error('error writing EventLog event:', error);
+    } finally {
+        state.eventLog.timeoutId = setTimeout(
+            saveAndEmitEventLog,
+            EVENTLOG_WRITING_INTERVAL_TIME
+        );
     }
 }
 

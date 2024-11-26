@@ -19,7 +19,7 @@ export interface State {
     eventLog: {
         data: EventLog[];
         lastEventId: number | null;
-        intervalId: NodeJS.Timeout | null;
+        timeoutId: NodeJS.Timeout | null;
     };
 }
 
