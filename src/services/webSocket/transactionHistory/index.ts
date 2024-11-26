@@ -73,6 +73,7 @@ function manageEventLogSaveAndEmit(connectionsCount: number) {
         // if there are no active socket connections
         clearInterval(state.eventLog.intervalId);
         state.eventLog = { data: [], lastEventId: null, intervalId: null };
+        console.log('No connections found. Stop writing EventLog event.');
     }
 }
 
