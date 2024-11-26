@@ -112,7 +112,7 @@ async function saveEventLogInState() {
             state.eventLog = {
                 ...state.eventLog,
                 data: EventLogTransactions,
-                lastEventId: EventLogTransactions[0]?.id,
+                lastEventId: EventLogTransactions[0].id,
             };
         }
     } catch (error) {
