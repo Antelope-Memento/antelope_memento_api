@@ -29,6 +29,7 @@ export const EVENTLOG_BLOCKS_LIMIT =
 
 export const EMIT_TIMEOUT_TIME = 500; // Time in milliseconds to wait before emitting the next event
 export const EVENTLOG_WRITING_INTERVAL_TIME = 500; // Time in milliseconds to write the EventLog event
+export const ACKNOWLEDGE_TIME = 5000;
 
 const state: State = {
     connectedSockets: {},
@@ -352,21 +353,22 @@ async function emitEventLogEvent(
         socketState.lastCheckedBlock
     );
 
-    const lastBlockNumber = state.eventLog.data[0]?.block_num;
-    if (lastBlockNumber) {
+    const lastEventLog = state.eventLog.data[0];
+    if (lastEventLog) {
         setSocketState({
-            lastCheckedBlock: lastBlockNumber,
+            lastCheckedBlock: lastEventLog.block_num,
+            lastEventLogId: lastEventLog.id,
         });
     }
 
     if (!isNonEmptyArray(events)) return;
 
+    // if client does not acknowledge emited event in ACKNOWLEDGE_TIME, disconnect it
     const disconnectionTimeout = setTimeout(() => {
         io.in(socketId).disconnectSockets(true);
         clearSocketState();
-    }, 5000);
+    }, ACKNOWLEDGE_TIME);
 
-    setSocketState({ lastEventLogId: state.eventLog.data[0]?.id });
     io.to(socketId).emit(EVENT.TRANSACTION_HISTORY, events, () => {
         clearTimeout(disconnectionTimeout);
     });
