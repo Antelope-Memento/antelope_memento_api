@@ -108,12 +108,13 @@ async function saveEventLogInState() {
             toId: Number(fromId) + EVENTLOG_BLOCKS_LIMIT,
         });
 
-        state.eventLog = {
-            ...state.eventLog,
-            data: EventLogTransactions,
-            lastEventId:
-                EventLogTransactions[0]?.id ?? state.eventLog.lastEventId,
-        };
+        if (isNonEmptyArray(EventLogTransactions)) {
+            state.eventLog = {
+                ...state.eventLog,
+                data: EventLogTransactions,
+                lastEventId: EventLogTransactions[0]?.id,
+            };
+        }
     } catch (error) {
         console.error('error saving EventLog in state:', error);
     }
@@ -394,10 +395,6 @@ async function emitEventLogEvent(
 }
 
 function emitEventLogsToClients() {
-    if (!state.eventLog.data.length) {
-        console.log('No new Event Logs found. Not emmitting to clients.');
-        return;
-    }
     const eventLogClients = Object.entries(state.connectedSockets);
 
     for (const [socketId, socketState] of eventLogClients) {
