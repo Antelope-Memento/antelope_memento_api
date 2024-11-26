@@ -52,11 +52,11 @@ export function webSocketFormat(
             }
             if (tx.event_type === EventType.fork) return true;
 
-            const findAcounts = (
+            const hasAccountAmongReceivers = (
                 tx.data.trace.action_traces as { receiver: string }[]
             ).some(({ receiver }) => accounts.includes(receiver));
 
-            return findAcounts;
+            return hasAccountAmongReceivers;
         })
         .map((tx) => {
             if (tx.event_type === EventType.trace) {
