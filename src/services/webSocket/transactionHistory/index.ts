@@ -109,6 +109,9 @@ async function saveEventLogInState() {
         });
 
         if (isNonEmptyArray(EventLogTransactions)) {
+            console.log(
+                `${EventLogTransactions.length} new Event Log events. Writing to state.`
+            );
             state.eventLog = {
                 ...state.eventLog,
                 data: EventLogTransactions,
