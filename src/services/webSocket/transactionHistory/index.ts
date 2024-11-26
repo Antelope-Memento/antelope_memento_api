@@ -106,7 +106,6 @@ function getSocketStateActions(socketId: SocketId) {
         initializeSocketState: (args: Args): void => {
             state.connectedSockets[socketId] = {
                 args,
-                intervalId: null,
                 lastEventLogId: 0,
                 lastTransactionBlockNum: 0,
                 lastCheckedBlock: 0,
@@ -130,10 +129,6 @@ function getSocketStateActions(socketId: SocketId) {
         },
         clearSocketState: (): void => {
             if (state.connectedSockets[socketId]) {
-                const interval = state.connectedSockets[socketId]?.intervalId;
-                if (interval) {
-                    clearInterval(interval);
-                }
                 delete state.connectedSockets[socketId];
             }
             console.log('Cleared socket state for socket:', socketId);
@@ -185,7 +180,6 @@ async function emitTransactionHistory(socket: Socket) {
         lastCheckedBlock,
         tableType,
         args: { accounts, start_block, irreversible },
-        intervalId,
     } = state;
 
     const startBlock = Math.max(start_block ?? headBlock, lastCheckedBlock);
@@ -210,12 +204,8 @@ async function emitTransactionHistory(socket: Socket) {
         console.log(
             `Switched to Transaction Table for socket: ${socket.id} by accounts:(${accounts}).`
         );
-        if (intervalId) {
-            clearInterval(intervalId);
-        }
         setSocketState({
             tableType: TableType.transaction,
-            intervalId: null,
         });
     }
 
