@@ -365,6 +365,7 @@ async function emitEventLogEvent(
     }
 
     if (!isNonEmptyArray(events)) return;
+    console.log(`Socket ${socketId} receives ${events.length} new Event Logs.`);
 
     // if client does not acknowledge emited event in ACKNOWLEDGE_TIME, disconnect it
     const disconnectionTimeout = setTimeout(() => {
@@ -378,6 +379,10 @@ async function emitEventLogEvent(
 }
 
 function emitEventLogsToClients() {
+    if (!state.eventLog.data.length) {
+        console.log('No new Event Logs found. Not emmitting to clients.');
+        return;
+    }
     const eventLogClients = Object.entries(state.connectedSockets);
 
     for (const [socketId, socketState] of eventLogClients) {
