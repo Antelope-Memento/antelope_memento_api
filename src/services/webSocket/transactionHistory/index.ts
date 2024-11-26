@@ -41,7 +41,7 @@ export function scheduleNextEmit(socket: Socket) {
     }, EMIT_TIMEOUT_TIME);
 }
 
-function manageEventLogSaveInState(connectionsCount: number) {
+function manageEventLogSaveAndEmit(connectionsCount: number) {
     const shouldWrite = connectionsCount > 0 && !state.eventLog.intervalId;
 
     // start writing the EventLog event if there are active socket connections
@@ -222,7 +222,7 @@ async function emitTransactionHistory(socket: Socket) {
     }
     if (tableType === TableType.eventLog) return;
 
-    emitEventBasedOnType({
+    handleTransactionEventEmit({
         socket,
         accounts,
         startBlock,
@@ -232,7 +232,7 @@ async function emitTransactionHistory(socket: Socket) {
     });
 }
 
-async function emitEventBasedOnType({
+async function handleTransactionEventEmit({
     socket,
     accounts,
     startBlock,
@@ -385,5 +385,5 @@ function emitEventLogEventToClients() {
 export {
     onTransactionHistory,
     getSocketStateActions,
-    manageEventLogSaveInState,
+    manageEventLogSaveAndEmit,
 };
