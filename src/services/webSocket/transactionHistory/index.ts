@@ -195,6 +195,10 @@ async function emitTransactionHistory(socket: Socket) {
         tableType,
     });
 
+    // if table type is event log and it shouldn't be changed to transaction table, then
+    // return, since event logs are emitted in manageEventLogSaveAndEmit
+    if (tableType === TableType.eventLog && !shouldUseTransactionTable) return;
+
     const shouldUseEventLogTable = switchEventLogTable({
         lastCheckedBlock,
         lastIrreversibleBlock,
@@ -221,7 +225,6 @@ async function emitTransactionHistory(socket: Socket) {
         });
         return;
     }
-    if (tableType === TableType.eventLog) return;
 
     handleTransactionEventEmit({
         socket,
