@@ -46,23 +46,27 @@ export function webSocketFormat(
     }));
 
     return parsedTraces
-        .filter(
-            (tx) => tx.id > lastEventLogId && tx.block_num >= lastCheckedBlock
-        )
+        .filter((tx) => {
+            if (lastEventLogId >= tx.id || lastCheckedBlock > tx.block_num) {
+                return false;
+            }
+            if (tx.event_type === EventType.fork) return true;
+
+            const findAcounts = (
+                tx.data.trace.action_traces as { receiver: string }[]
+            ).some(({ receiver }) => accounts.includes(receiver));
+
+            return findAcounts;
+        })
         .map((tx) => {
             if (tx.event_type === EventType.trace) {
-                const findAcounts = (
-                    tx.data.trace.action_traces as { receiver: string }[]
-                ).some(({ receiver }) => accounts.includes(receiver));
-                if (findAcounts) {
-                    tx.id && delete (tx as { id?: unknown }).id;
-                    tx.event_type &&
-                        delete (tx as { event_type?: unknown }).event_type;
-                    return {
-                        ...tx,
-                        type: 'trace' as const,
-                    };
-                }
+                tx.id && delete (tx as { id?: unknown }).id;
+                tx.event_type &&
+                    delete (tx as { event_type?: unknown }).event_type;
+                return {
+                    ...tx,
+                    type: 'trace' as const,
+                };
             } else {
                 tx.id && delete (tx as { id?: unknown }).id;
                 tx.event_type &&
@@ -73,6 +77,5 @@ export function webSocketFormat(
                     data: null,
                 };
             }
-        })
-        .filter(Boolean);
+        });
 }
