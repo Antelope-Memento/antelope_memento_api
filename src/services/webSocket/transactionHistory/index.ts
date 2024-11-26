@@ -356,10 +356,7 @@ async function emitTransactionEvent(
     }
 }
 
-async function emitEventLogEvent(
-    socketId: SocketId,
-    accounts: Args['accounts']
-) {
+async function emitEventLogEvent(socketId: SocketId) {
     const { setSocketState, clearSocketState, getSocketState } =
         getSocketStateActions(socketId);
     const socketState = getSocketState();
@@ -367,7 +364,7 @@ async function emitEventLogEvent(
 
     const events = eventLogService.webSocketFormat(
         state.eventLog.data,
-        accounts,
+        socketState.args.accounts,
         socketState.lastEventLogId,
         socketState.lastCheckedBlock
     );
@@ -395,11 +392,12 @@ async function emitEventLogEvent(
 }
 
 function emitEventLogsToClients() {
-    const eventLogClients = Object.entries(state.connectedSockets);
+    const eventLogClients = Object.keys(state.connectedSockets);
 
-    for (const [socketId, socketState] of eventLogClients) {
-        if (socketState.tableType !== TableType.eventLog) continue;
-        emitEventLogEvent(socketId, socketState.args.accounts);
+    for (const socketId of eventLogClients) {
+        if (state.connectedSockets[socketId]?.tableType !== TableType.eventLog)
+            continue;
+        emitEventLogEvent(socketId);
     }
 }
 
