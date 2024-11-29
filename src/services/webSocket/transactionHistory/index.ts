@@ -28,7 +28,7 @@ export const EVENTLOG_BLOCKS_LIMIT =
     Number(process.env.WS_EVENTLOG_TRANSACTIONS_LIMIT) ?? 100;
 
 export const EMIT_TIMEOUT_TIME = 500; // Time in milliseconds to wait before emitting the next event
-export const EVENTLOG_WRITING_INTERVAL_TIME = 500; // Time in milliseconds to write the EventLog event
+export const EVENTLOG_WRITING_TIMEOUT_TIME = 500; // Time in milliseconds to write the EventLog event
 export const ACKNOWLEDGE_TIME = 5000;
 
 const state: State = {
@@ -52,7 +52,7 @@ function manageEventLogSaveAndEmit(connectionsCount: number) {
         );
         state.eventLog.timeoutId = setTimeout(
             saveAndEmitEventLog,
-            EVENTLOG_WRITING_INTERVAL_TIME
+            EVENTLOG_WRITING_TIMEOUT_TIME
         );
     }
     if (!connectionsCount && state.eventLog.timeoutId) {
@@ -73,7 +73,7 @@ async function saveAndEmitEventLog() {
     ) {
         state.eventLog.timeoutId = setTimeout(
             saveAndEmitEventLog,
-            EVENTLOG_WRITING_INTERVAL_TIME
+            EVENTLOG_WRITING_TIMEOUT_TIME
         );
         return;
     }
@@ -86,7 +86,7 @@ async function saveAndEmitEventLog() {
     } finally {
         state.eventLog.timeoutId = setTimeout(
             saveAndEmitEventLog,
-            EVENTLOG_WRITING_INTERVAL_TIME
+            EVENTLOG_WRITING_TIMEOUT_TIME
         );
     }
 }
@@ -363,7 +363,10 @@ async function emitEventLogEvent(socketId: SocketId) {
     const { setSocketState, clearSocketState, getSocketState } =
         getSocketStateActions(socketId);
     const socketState = getSocketState();
-    if (!socketState) return;
+    if (!socketState) {
+        console.log(`Tried to emit EventLog event to socket ${socketId} but could not find the state.`);
+        return;
+    }
 
     const events = eventLogService.webSocketFormat(
         state.eventLog.data,
