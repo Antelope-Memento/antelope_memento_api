@@ -250,7 +250,6 @@ async function emitTransactionHistory(socket: Socket) {
         accounts,
         startBlock,
         lastIrreversibleBlock,
-        irreversible,
         headBlock,
     });
 }
@@ -260,14 +259,12 @@ async function handleTransactionEventEmit({
     accounts,
     startBlock,
     lastIrreversibleBlock,
-    irreversible,
     headBlock,
 }: {
     socket: Socket;
     accounts: Args['accounts'];
     startBlock: number;
     lastIrreversibleBlock: number;
-    irreversible: Args['irreversible'];
     headBlock: number;
 }) {
     const { getSocketState, setSocketState } = getSocketStateActions(socket.id);
@@ -289,9 +286,7 @@ async function handleTransactionEventEmit({
 
         const threshold = calculateTraceTxsBlockThreshold(count, startBlock);
 
-        let toBlock = irreversible
-            ? Math.min(threshold, lastIrreversibleBlock)
-            : threshold;
+        let toBlock = Math.min(threshold, lastIrreversibleBlock);
 
         shouldExecute =
             startBlock <= toBlock &&
@@ -364,7 +359,9 @@ async function emitEventLogEvent(socketId: SocketId) {
         getSocketStateActions(socketId);
     const socketState = getSocketState();
     if (!socketState) {
-        console.log(`Tried to emit EventLog event to socket ${socketId} but could not find the state.`);
+        console.log(
+            `Tried to emit EventLog event to socket ${socketId} but could not find the state.`
+        );
         return;
     }
 
