@@ -115,8 +115,7 @@ async function saveEventLogInState() {
             state.eventLog = {
                 ...state.eventLog,
                 data: EventLogTransactions,
-                lastEventId:
-                    EventLogTransactions[EventLogTransactions.length - 1]!.id,
+                lastEventId: EventLogTransactions[EventLogTransactions.length - 1]!.id,
             };
         }
     } catch (error) {
@@ -341,8 +340,7 @@ async function emitTransactionEvent(
         });
 
     if (isNonEmptyArray(transactionHistory)) {
-        const lastTransactionBlockNum =
-            transactionHistory[transactionHistory.length - 1]!.block_num;
+        const lastTransactionBlockNum = transactionHistory[transactionHistory.length - 1]!.block_num;
         setSocketState({
             lastTransactionBlockNum: Number(lastTransactionBlockNum),
             lastCheckedBlock: toBlock,
@@ -352,7 +350,9 @@ async function emitTransactionEvent(
     const transactions = transactionService.webSocketFormat(transactionHistory);
 
     if (isNonEmptyArray(transactions)) {
-        socket.emit(EVENT.TRANSACTION_HISTORY, transactions, () => {});
+        for (const tx of transactions) {
+            socket.emit(EVENT.TRANSACTION_HISTORY, tx, () => {});
+        }
     }
 }
 
@@ -385,15 +385,17 @@ async function emitEventLogEvent(socketId: SocketId) {
     if (!isNonEmptyArray(events)) return;
     console.log(`Socket ${socketId} receives ${events.length} new Event Logs.`);
 
-    // if client does not acknowledge emited event in ACKNOWLEDGE_TIME, disconnect it
-    const disconnectionTimeout = setTimeout(() => {
-        io.in(socketId).disconnectSockets(true);
-        clearSocketState();
-    }, ACKNOWLEDGE_TIME);
+    for (const e of events) {
+        // if client does not acknowledge emited event in ACKNOWLEDGE_TIME, disconnect it
+        const disconnectionTimeout = setTimeout(() => {
+            io.in(socketId).disconnectSockets(true);
+            clearSocketState();
+        }, ACKNOWLEDGE_TIME);
 
-    io.to(socketId).emit(EVENT.TRANSACTION_HISTORY, events, () => {
-        clearTimeout(disconnectionTimeout);
-    });
+        io.to(socketId).emit(EVENT.TRANSACTION_HISTORY, e, () => {
+            clearTimeout(disconnectionTimeout);
+        });
+    }
 }
 
 function emitEventLogsToClients() {
