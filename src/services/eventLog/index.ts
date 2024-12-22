@@ -21,7 +21,7 @@ export async function getAll({
                 [Op.lte]: toId,
             },
         },
-        order: [['id', 'DESC']],
+        order: [['id', 'ASC']],
         raw: true,
     });
 }
