@@ -115,7 +115,8 @@ async function saveEventLogInState() {
             state.eventLog = {
                 ...state.eventLog,
                 data: EventLogTransactions,
-                lastEventId: EventLogTransactions[EventLogTransactions.length - 1]!.id,
+                lastEventId:
+                    EventLogTransactions[EventLogTransactions.length - 1]!.id,
             };
         }
     } catch (error) {
@@ -340,7 +341,8 @@ async function emitTransactionEvent(
         });
 
     if (isNonEmptyArray(transactionHistory)) {
-        const lastTransactionBlockNum = transactionHistory[transactionHistory.length - 1]!.block_num;
+        const lastTransactionBlockNum =
+            transactionHistory[transactionHistory.length - 1]!.block_num;
         setSocketState({
             lastTransactionBlockNum: Number(lastTransactionBlockNum),
             lastCheckedBlock: toBlock,
@@ -374,7 +376,7 @@ async function emitEventLogEvent(socketId: SocketId) {
         socketState.lastCheckedBlock
     );
 
-    const lastEventLog = state.eventLog.data[0];
+    const lastEventLog = state.eventLog.data[state.eventLog.data.length - 1];
     if (lastEventLog) {
         setSocketState({
             lastCheckedBlock: lastEventLog.block_num,
