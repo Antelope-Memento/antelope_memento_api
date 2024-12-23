@@ -115,7 +115,8 @@ async function saveEventLogInState() {
             state.eventLog = {
                 ...state.eventLog,
                 data: EventLogTransactions,
-                lastEventId: EventLogTransactions[0].id,
+                lastEventId:
+                    EventLogTransactions[EventLogTransactions.length - 1]!.id,
             };
         }
     } catch (error) {
@@ -250,7 +251,6 @@ async function emitTransactionHistory(socket: Socket) {
         accounts,
         startBlock,
         lastIrreversibleBlock,
-        irreversible,
         headBlock,
     });
 }
@@ -260,14 +260,12 @@ async function handleTransactionEventEmit({
     accounts,
     startBlock,
     lastIrreversibleBlock,
-    irreversible,
     headBlock,
 }: {
     socket: Socket;
     accounts: Args['accounts'];
     startBlock: number;
     lastIrreversibleBlock: number;
-    irreversible: Args['irreversible'];
     headBlock: number;
 }) {
     const { getSocketState, setSocketState } = getSocketStateActions(socket.id);
@@ -289,9 +287,7 @@ async function handleTransactionEventEmit({
 
         const threshold = calculateTraceTxsBlockThreshold(count, startBlock);
 
-        let toBlock = irreversible
-            ? Math.min(threshold, lastIrreversibleBlock)
-            : threshold;
+        let toBlock = Math.min(threshold, lastIrreversibleBlock);
 
         shouldExecute =
             startBlock <= toBlock &&
@@ -345,7 +341,8 @@ async function emitTransactionEvent(
         });
 
     if (isNonEmptyArray(transactionHistory)) {
-        const lastTransactionBlockNum = transactionHistory[0].block_num;
+        const lastTransactionBlockNum =
+            transactionHistory[transactionHistory.length - 1]!.block_num;
         setSocketState({
             lastTransactionBlockNum: Number(lastTransactionBlockNum),
             lastCheckedBlock: toBlock,
@@ -355,7 +352,9 @@ async function emitTransactionEvent(
     const transactions = transactionService.webSocketFormat(transactionHistory);
 
     if (isNonEmptyArray(transactions)) {
-        socket.emit(EVENT.TRANSACTION_HISTORY, transactions, () => {});
+        for (const tx of transactions) {
+            socket.emit(EVENT.TRANSACTION_HISTORY, tx, () => {});
+        }
     }
 }
 
@@ -364,7 +363,9 @@ async function emitEventLogEvent(socketId: SocketId) {
         getSocketStateActions(socketId);
     const socketState = getSocketState();
     if (!socketState) {
-        console.log(`Tried to emit EventLog event to socket ${socketId} but could not find the state.`);
+        console.log(
+            `Tried to emit EventLog event to socket ${socketId} but could not find the state.`
+        );
         return;
     }
 
@@ -375,7 +376,7 @@ async function emitEventLogEvent(socketId: SocketId) {
         socketState.lastCheckedBlock
     );
 
-    const lastEventLog = state.eventLog.data[0];
+    const lastEventLog = state.eventLog.data[state.eventLog.data.length - 1];
     if (lastEventLog) {
         setSocketState({
             lastCheckedBlock: lastEventLog.block_num,
@@ -386,15 +387,17 @@ async function emitEventLogEvent(socketId: SocketId) {
     if (!isNonEmptyArray(events)) return;
     console.log(`Socket ${socketId} receives ${events.length} new Event Logs.`);
 
-    // if client does not acknowledge emited event in ACKNOWLEDGE_TIME, disconnect it
-    const disconnectionTimeout = setTimeout(() => {
-        io.in(socketId).disconnectSockets(true);
-        clearSocketState();
-    }, ACKNOWLEDGE_TIME);
+    for (const e of events) {
+        // if client does not acknowledge emited event in ACKNOWLEDGE_TIME, disconnect it
+        const disconnectionTimeout = setTimeout(() => {
+            io.in(socketId).disconnectSockets(true);
+            clearSocketState();
+        }, ACKNOWLEDGE_TIME);
 
-    io.to(socketId).emit(EVENT.TRANSACTION_HISTORY, events, () => {
-        clearTimeout(disconnectionTimeout);
-    });
+        io.to(socketId).emit(EVENT.TRANSACTION_HISTORY, e, () => {
+            clearTimeout(disconnectionTimeout);
+        });
+    }
 }
 
 function emitEventLogsToClients() {

@@ -29,7 +29,7 @@ export async function getWebSocketTraceTransactions({
             WHERE receiver IN (:accounts)
             AND block_num >= :fromBlock
             AND block_num < :toBlock
-            ORDER BY block_num DESC
+            ORDER BY block_num ASC
         ) AS R
         INNER JOIN TRANSACTIONS ON R.seq = TRANSACTIONS.seq`,
         {
