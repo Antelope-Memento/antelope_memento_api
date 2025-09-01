@@ -77,12 +77,11 @@ async function retrieveAccountHistory(args: {
                   ...(irreversible && {
                       block_num: { [Op.lte]: lastIrreversibleBlock },
                   }),
-              })}
-              ORDER by receiver, recv_sequence, seq) Y
-            GROUP BY seq
-            ORDER by seq
+              })}) Y
+            GROUP BY seq            
         ) as X
         INNER JOIN TRANSACTIONS ON X.seq = TRANSACTIONS.seq
+        ORDER by X.seq
     `,
         {
             type: QueryTypes.SELECT,
