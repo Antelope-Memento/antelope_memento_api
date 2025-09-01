@@ -385,6 +385,11 @@ WS_EVENTLOG_TRANSACTIONS_LIMIT = 100 // maximum number of reversible transaction
 
 ```
 
+# Release history
+
+* Release 2.2: bugfix in using the index in RECEIPTS. Also, returned pos is the maximum position within the transaction.
+
+
 # Acknowledgments
 
 This work was sponsored by EOS Amsterdam block producer.
