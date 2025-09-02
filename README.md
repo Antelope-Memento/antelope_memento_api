@@ -76,10 +76,9 @@ fields `pos` and `trace`). The array is empty if nothing is found.
 
 Position (pos) is equal to `recv_sequence` number for the
 account. Multiple positions for the same account may correspond to the
-same transaction. The `get_account_history` picks the minimum
+same transaction. The `get_account_history` picks the maximum
 `recv_sequence` value within each transaction and returns it as `pos`
-parameter. But `pos` in the first returned transaction may be higher
-than the minimum.
+parameter.
 
 Mandatory argument: `account`.
 
@@ -388,6 +387,8 @@ WS_EVENTLOG_TRANSACTIONS_LIMIT = 100 // maximum number of reversible transaction
 # Release history
 
 * Release 2.2: bugfix in using the index in RECEIPTS. Also, returned pos is the maximum position within the transaction.
+
+* Release 2.3: bugfix in number handling.
 
 
 # Acknowledgments
