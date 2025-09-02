@@ -54,8 +54,8 @@ async function retrieveAccountHistory(args: {
         max_count ?? 1000
     );
 
-    const upper_position = position + limit;
-    console.log({ account });
+    const limit_receipts = limit + 2*Number(process.env.MAX_RECORD_COUNT);
+
     const queryResult = await sequelize.query<{
         pos: number;
         trace: Buffer;
@@ -69,7 +69,7 @@ async function retrieveAccountHistory(args: {
               RECEIPTS
               WHERE ${sql.where({
                   receiver: account,
-                  recv_sequence: { [Op.between]: [position, upper_position] },
+                  recv_sequence: { [Op.gte]: position },
                   ...(action_filter && {
                       contract: action_filter.split(':')[0],
                       action: action_filter.split(':')[1],
@@ -77,13 +77,17 @@ async function retrieveAccountHistory(args: {
                   ...(irreversible && {
                       block_num: { [Op.lte]: lastIrreversibleBlock },
                   }),
-              })}) Y
-            GROUP BY seq            
+              })}
+              ORDER BY recv_sequence
+              LIMIT :limit_receipts) Y
+            GROUP BY seq
         ) as X
         INNER JOIN TRANSACTIONS ON X.seq = TRANSACTIONS.seq
         ORDER by X.seq
+        LIMIT :limit
     `,
         {
+            replacements: { limit, limit_receipts },
             type: QueryTypes.SELECT,
         }
     );
