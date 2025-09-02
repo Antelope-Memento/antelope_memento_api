@@ -390,6 +390,7 @@ WS_EVENTLOG_TRANSACTIONS_LIMIT = 100 // maximum number of reversible transaction
 
 * Release 2.3: bugfix in number handling.
 
+* Release 2.4: bugfix in receipts selection
 
 # Acknowledgments
 
