@@ -41,7 +41,7 @@ async function retrieveAccountHistory(args: {
     const lastIrreversibleBlock =
         await syncService.getIrreversibleBlockNumber();
 
-    let position = pos ?? -1 * Number(process.env.MAX_RECORD_COUNT);
+    let position = Number(pos ?? -1 * Number(process.env.MAX_RECORD_COUNT));
 
     if (position < 0) {
         const maxRecvSequence =
@@ -51,10 +51,10 @@ async function retrieveAccountHistory(args: {
 
     const limit = Math.min(
         Number(process.env.MAX_RECORD_COUNT),
-        max_count ?? Infinity
+        max_count ?? 1000
     );
 
-    const upper_position = Number(position) + Number(limit);
+    const upper_position = position + limit;
     console.log({ account });
     const queryResult = await sequelize.query<{
         pos: number;
