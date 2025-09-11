@@ -8,7 +8,7 @@ import { NetBalanceQuery } from './types';
 
 const { HTTP_200_CODE, HTTP_400_CODE } = constants;
 
-export const getNetBalance = async (req: Request, res: Response) => {
+export const getBalanceDelta = async (req: Request, res: Response) => {
     const validationRes = validationResult(req);
     if (!validationRes.isEmpty()) {
         res.status(400);
@@ -17,66 +17,83 @@ export const getNetBalance = async (req: Request, res: Response) => {
     }
 
     try {
-        const {lastBlock, balance} = 
-            await retrieveNetBalance(
+        const {fromBlock, toBlock, balance, transfersNumber} = 
+            await retrieveBalanceDelta(
                 // sage to cast because it's validated
                 req.query as unknown as NetBalanceQuery
             );
 
         res.status(HTTP_200_CODE);
-        res.send({ lastBlock, balance });
+        res.send({ fromBlock, toBlock, balance, transfersNumber });
     } catch (error) {
         res.sendStatus(HTTP_400_CODE);
         console.error((error as Error)?.message);
     }
 }
 
-async function retrieveNetBalance(args: {
+async function retrieveBalanceDelta(args: {
     account: string;
     currency: string;
     contract: string;
-    last_block_num?: number;
-}): Promise<{ lastBlock: number; balance: number }> {
-    const { account, currency, contract, last_block_num } = args;
+    from_block?: number;
+    to_block?: number;
+}): Promise<{ fromBlock: number; toBlock: number; balance: number, transfersNumber: number }> {
+    const { account, currency, contract, from_block, to_block } = args;
 
     const lastIrreversibleBlock =
         await syncService.getIrreversibleBlockNumber();
 
-    const effectiveBlockNum =
-      last_block_num && last_block_num <= lastIrreversibleBlock
-        ? last_block_num
-        : lastIrreversibleBlock;
+    const effectiveToBlockNum =
+        to_block && to_block <= lastIrreversibleBlock
+            ? to_block
+            : lastIrreversibleBlock;
 
-    const [result] = await sequelize.query<{ balance: number }>(
+    const effectiveFromBlockNum = from_block ?? 0;
+
+    const [result] = await sequelize.query<{
+        raw_amount: string;
+        decimals: number;
+        transfers: number;
+    }>(
         sql`
-        SELECT COALESCE(SUM(balance_change), 0) AS balance
+        SELECT 
+          COALESCE(SUM(balance_change), 0) AS raw_amount,
+          MAX(decimals) AS decimals,
+          SUM(transfers) AS transfers
         FROM (
-          SELECT SUM(amount / POW(10, decimals)) AS balance_change
+          SELECT SUM(amount) AS balance_change, MAX(decimals) AS decimals, COUNT(*) AS transfers
           FROM TOKEN_TRANSFERS
           WHERE ${sql.where({
               currency,
               contract,
               tx_to: account,
-              block_num: { [Op.lte]: effectiveBlockNum },
+              block_num: { [Op.between]: [effectiveFromBlockNum, effectiveToBlockNum] },
           })}
-
+    
           UNION ALL
-
-          SELECT -SUM(amount / POW(10, decimals)) AS balance_change
+    
+          SELECT -SUM(amount) AS balance_change, MAX(decimals) AS decimals, COUNT(*) AS transfers
           FROM TOKEN_TRANSFERS
           WHERE ${sql.where({
               currency,
               contract,
               tx_from: account,
-              block_num: { [Op.lte]: effectiveBlockNum },
+              block_num: { [Op.between]: [effectiveFromBlockNum, effectiveToBlockNum] },
           })}
         ) AS movements;
       `,
         { type: QueryTypes.SELECT }
     );
 
+    const rawAmount = BigInt(result?.raw_amount ?? 0);
+    const decimals = result?.decimals ?? 0;
+    const balance = Number(rawAmount) / Math.pow(10, decimals);
+    const transfers = result?.transfers ?? 0;
+    
     return {
-      lastBlock: effectiveBlockNum,
-      balance: result ? result.balance : 0
+    fromBlock: effectiveFromBlockNum,
+      toBlock: effectiveToBlockNum,
+      balance,
+      transfersNumber: transfers,
     };
 }
