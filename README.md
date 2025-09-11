@@ -109,6 +109,26 @@ timestamp.
 
 Mandatory argument: `account`. `timestamp`.
 
+### `/get_balance_delta`
+
+The call returns the net balance change of an account for a given token and contract within a specified block range.
+
+Mandatory arguments:
+-   `account` (string): the account name
+-   `currency` (string): the token symbol (e.g. USDT)
+-   `contract` (string): the token contract (e.g. tethertether)
+
+Optional arguments:
+
+-   `from_block` (uint): starting block number (inclusive)
+-   `to_block` (uint): ending block number (inclusive, but constrained by the last irreversible block)
+
+Returns a JSON object with the following fields:
+-   `lastBlock`: the effective upper block number used for the calculation (adjusted to the last irreversible block if needed)
+-   `balance_delta`: net amount gained (positive) or lost (negative) by the account in the block range
+-   `raw_amount`: the integer sum of all transfers before applying decimals
+-   `transfers`: the total number of transfers affecting the account in the block range
+
 ## GraphQL API
 
 The GraphQL interface is accessible at `/graphql` location from the
