@@ -1,4 +1,4 @@
-export interface NetBalanceQuery {
+export interface BalanceDeltaQuery {
     account: string;
     currency: string;
     contract: string;

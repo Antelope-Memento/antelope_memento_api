@@ -4,14 +4,14 @@ import constants from '../../constants/config';
 import * as syncService from '../../services/sync';
 import sequelize from '../../database';
 import { Op, QueryTypes, sql } from '@sequelize/core';
-import { NetBalanceQuery } from './types';
+import { BalanceDeltaQuery } from './types';
 
 const { HTTP_200_CODE, HTTP_400_CODE } = constants;
 
 export const getBalanceDelta = async (req: Request, res: Response) => {
     const validationRes = validationResult(req);
     if (!validationRes.isEmpty()) {
-        res.status(400);
+        res.status(HTTP_400_CODE);
         res.send({ errors: validationRes.array() });
         return;
     }
@@ -20,7 +20,7 @@ export const getBalanceDelta = async (req: Request, res: Response) => {
         const {fromBlock, toBlock, balance, transfersNumber} = 
             await retrieveBalanceDelta(
                 // sage to cast because it's validated
-                req.query as unknown as NetBalanceQuery
+                req.query as unknown as BalanceDeltaQuery
             );
 
         res.status(HTTP_200_CODE);
