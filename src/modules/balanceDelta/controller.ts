@@ -9,6 +9,10 @@ import { BalanceDeltaQuery } from './types';
 const { HTTP_200_CODE, HTTP_400_CODE } = constants;
 
 export const getBalanceDelta = async (req: Request, res: Response) => {
+    if (process.env.ENABLE_BALANCE_DELTA !== 'true') {
+        res.status(404).send({ error: 'Not Found' });
+        return;
+    }
     const validationRes = validationResult(req);
     if (!validationRes.isEmpty()) {
         res.status(HTTP_400_CODE);
@@ -37,7 +41,7 @@ async function retrieveBalanceDelta(args: {
     contract: string;
     from_block?: number;
     to_block?: number;
-}): Promise<{ fromBlock: number; toBlock: number; balance: number, transfersNumber: number }> {
+}): Promise<{ fromBlock: string; toBlock: string; balance: string, transfersNumber: string }> {
     const { account, currency, contract, from_block, to_block } = args;
 
     const lastIrreversibleBlock =
@@ -87,13 +91,13 @@ async function retrieveBalanceDelta(args: {
 
     const rawAmount = BigInt(result?.raw_amount ?? 0);
     const decimals = result?.decimals ?? 0;
-    const balance = Number(rawAmount) / Math.pow(10, decimals);
+    const balance = (Number(rawAmount) / Math.pow(10, decimals)).toString();
     const transfers = result?.transfers ?? 0;
     
     return {
-    fromBlock: effectiveFromBlockNum,
-      toBlock: effectiveToBlockNum,
+      fromBlock: effectiveFromBlockNum.toString(),
+      toBlock: effectiveToBlockNum.toString(),
       balance,
-      transfersNumber: transfers,
+      transfersNumber: transfers.toString(),
     };
 }
