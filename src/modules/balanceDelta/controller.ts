@@ -6,11 +6,11 @@ import sequelize from '../../database';
 import { Op, QueryTypes, sql } from '@sequelize/core';
 import { BalanceDeltaQuery } from './types';
 
-const { HTTP_200_CODE, HTTP_400_CODE } = constants;
+const { HTTP_200_CODE, HTTP_400_CODE, HTTP_404_CODE } = constants;
 
 export const getBalanceDelta = async (req: Request, res: Response) => {
-    if (process.env.ENABLE_BALANCE_DELTA !== 'true') {
-        res.status(404).send({ error: 'Not Found' });
+    if (process.env.PLUGIN_TRANSFERS_ENABLED !== 'true') {
+        res.status(HTTP_404_CODE).send({ error: 'Endpoint not available PLUGIN_TRANSFERS must enabled' });
         return;
     }
     const validationRes = validationResult(req);
