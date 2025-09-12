@@ -67,12 +67,12 @@ async function retrieveBalanceDelta(args: {
     const effectiveFromBlockNum = from_block ?? 1;
 
     const fromTimeSQL = from_time 
-        ? sql`FROM_UNIXTIME(${from_time})` 
+        ? new Date(from_time).toISOString().replace('T', ' ').replace('Z', '')
         : EOS_GENESIS_TIMESTAMP;
     
     const toTimeSQL = to_time 
-        ? sql`FROM_UNIXTIME(${to_time})` 
-        : lastIrreversibleBlockTime.toISOString();
+        ? new Date(to_time).toISOString().replace('T', ' ').replace('Z', '')
+        : lastIrreversibleBlockTime.toISOString().slice(0, 19).replace('T', ' ');
 
     let rangeFilter: Record<string, any>;
     if (args.from_block || args.to_block) {
