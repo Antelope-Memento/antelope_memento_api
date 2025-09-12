@@ -122,12 +122,16 @@ Optional arguments:
 
 -   `from_block` (uint): starting block number (inclusive)
 -   `to_block` (uint): ending block number (inclusive, but constrained by the last irreversible block)
+-   `from_time` (uint): starting time as a Unix timestamp (seconds since epoch)
+-   `to_time` (uint): ending time as a Unix timestamp (seconds since epoch)
 
 Returns a JSON object with the following fields:
--   `lastBlock`: the effective upper block number used for the calculation (adjusted to the last irreversible block if needed)
--   `balance_delta`: net amount gained (positive) or lost (negative) by the account in the block range
--   `raw_amount`: the integer sum of all transfers before applying decimals
--   `transfers`: the total number of transfers affecting the account in the block range
+-   `fromBlock` (string): the effective starting block number used
+-   `fromTimestamp` (string, ISO 8601 with timezone): timestamp of the starting block
+-   `toBlock` (string): the effective ending block number used
+-   `toTimestamp` (string, ISO 8601 with timezone): timestamp of the ending block
+-   `balance` (string): net balance change (human-readable with decimals, positive = gain, negative = loss)
+-   `transfersNumber` (string): total number of transfers involving the account within the range
 
 ## GraphQL API
 
