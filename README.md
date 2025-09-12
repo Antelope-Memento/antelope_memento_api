@@ -109,6 +109,30 @@ timestamp.
 
 Mandatory argument: `account`. `timestamp`.
 
+### `/get_balance_delta`
+
+The call returns the net balance change of an account for a given token and contract within a specified block range.
+
+Mandatory arguments:
+-   `account` (string): the account name
+-   `currency` (string): the token symbol (e.g. USDT)
+-   `contract` (string): the token contract (e.g. tethertether)
+
+Optional arguments:
+
+-   `from_block` (uint): starting block number (inclusive)
+-   `to_block` (uint): ending block number (inclusive, but constrained by the last irreversible block)
+-   `from_time` (uint): starting time as a Unix timestamp (seconds since epoch)
+-   `to_time` (uint): ending time as a Unix timestamp (seconds since epoch)
+
+Returns a JSON object with the following fields:
+-   `fromBlock` (string): the effective starting block number used
+-   `fromTimestamp` (string, ISO 8601 with timezone): timestamp of the starting block
+-   `toBlock` (string): the effective ending block number used
+-   `toTimestamp` (string, ISO 8601 with timezone): timestamp of the ending block
+-   `balance` (string): net balance change (human-readable with decimals, positive = gain, negative = loss)
+-   `transfersNumber` (string): total number of transfers involving the account within the range
+
 ## GraphQL API
 
 The GraphQL interface is accessible at `/graphql` location from the
